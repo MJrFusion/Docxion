@@ -63,7 +63,6 @@ export type ViewerEvent =
   | { type: 'ready'; detail: { timestamp: number } }
   | { type: 'state-change'; detail: StateChangeDetail };
 
-// Rest of interfaces...
 export interface ViewerAPI {
   openFile(file: File | string): Promise<void>;
   closeFile(): void;

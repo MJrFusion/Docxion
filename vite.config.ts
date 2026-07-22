@@ -6,7 +6,6 @@ export default defineConfig({
   plugins: [
     fileViewerRenderers({
       formats: [
-        'pdf',
         'doc',
         'docx',
         'xls',

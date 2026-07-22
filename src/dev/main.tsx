@@ -63,79 +63,130 @@ function updatePageDisplay() {
   const total = viewer.getTotalPages();
   const display = document.getElementById('page-display');
   if (display) {
-    display.textContent = `${current + 1} / ${total}`;
+    display.textContent = `${current} / ${total}`;
   }
 }
 
+// Zoom
 document.getElementById('zoom-in')?.addEventListener('click', async () => {
-  console.log('Zoom in clicked');
   if (!viewer) return;
   await viewer.zoomIn();
   updateZoomDisplay();
 });
 
 document.getElementById('zoom-out')?.addEventListener('click', async () => {
-  console.log('Zoom out clicked');
   if (!viewer) return;
   await viewer.zoomOut();
   updateZoomDisplay();
 });
 
 document.getElementById('zoom-fit')?.addEventListener('click', async () => {
-  console.log('Fit clicked');
   if (!viewer) return;
   await viewer.fitToWidth();
   updateZoomDisplay();
 });
 
+// Navigation – 1‑based
 document.getElementById('prev-page')?.addEventListener('click', async () => {
-  console.log('Prev page clicked');
   if (!viewer) return;
   const current = viewer.getCurrentPage();
-  await viewer.goToPage(Math.max(0, current - 1));
+  await viewer.goToPage(Math.max(1, current - 1));
   updatePageDisplay();
 });
 
 document.getElementById('next-page')?.addEventListener('click', async () => {
-  console.log('Next page clicked');
   if (!viewer) return;
   const current = viewer.getCurrentPage();
   const total = viewer.getTotalPages();
-  await viewer.goToPage(Math.min(total - 1, current + 1));
+  await viewer.goToPage(Math.min(total, current + 1));
   updatePageDisplay();
 });
 
+// Search
 document.getElementById('search-btn')?.addEventListener('click', async () => {
-  console.log('Search clicked');
   if (!viewer) return;
   const input = document.getElementById('search-input') as HTMLInputElement;
   const query = input.value.trim();
   if (!query) return;
   const results = await viewer.search(query);
   console.log('Search results:', results);
-  if (results.length > 0) await viewer.goToNextMatch();
+  if (results.length > 0) {
+    await viewer.goToNextMatch();
+  }
 });
 
 document.getElementById('search-input')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('search-btn')?.click();
 });
 
+// Next/Prev search buttons (dynamically added)
+const nextSearchBtn = document.getElementById('next-search');
+const prevSearchBtn = document.getElementById('prev-search');
+if (nextSearchBtn) {
+  nextSearchBtn.addEventListener('click', async () => {
+    if (!viewer) return;
+    await viewer.goToNextMatch();
+  });
+}
+if (prevSearchBtn) {
+  prevSearchBtn.addEventListener('click', async () => {
+    if (!viewer) return;
+    await viewer.goToPreviousMatch();
+  });
+}
+
+// Highlight using actual selection
 document.getElementById('add-highlight')?.addEventListener('click', async () => {
-  console.log('Highlight clicked');
   if (!viewer) return;
+
+  const selectedText = viewer.getSelectedText();
+  if (!selectedText) {
+    console.log('No text selected');
+    alert('Please select some text first.');
+    return;
+  }
+
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) {
+    console.log('No selection range');
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+
+  const adjustedRect = {
+    left: rect.left - containerRect.left,
+    top: rect.top - containerRect.top,
+    right: rect.right - containerRect.left,
+    bottom: rect.bottom - containerRect.top,
+  };
+
+  // Ensure positive dimensions
+  if (adjustedRect.left < 0) adjustedRect.left = 0;
+  if (adjustedRect.top < 0) adjustedRect.top = 0;
+  if (adjustedRect.right < adjustedRect.left) {
+    [adjustedRect.left, adjustedRect.right] = [adjustedRect.right, adjustedRect.left];
+  }
+  if (adjustedRect.bottom < adjustedRect.top) {
+    [adjustedRect.top, adjustedRect.bottom] = [adjustedRect.bottom, adjustedRect.top];
+  }
+
   const page = viewer.getCurrentPage();
-  const rect = { left: 0, top: 0, right: 100, bottom: 20 };
-  const color = 0xFFFF00;
+  const color = 0xFFFFFF00;
+
   try {
-    const highlight = await viewer.addHighlight(page, rect, color);
+    const highlight = await viewer.addHighlight(page, adjustedRect, color);
     console.log('Highlight added:', highlight);
+    viewer.clearSelection();
   } catch (err) {
     console.error('Failed to add highlight:', err);
   }
 });
 
+// Theme
 document.getElementById('toggle-theme')?.addEventListener('click', () => {
-  console.log('Theme toggle clicked');
   if (!viewer) return;
   const current = viewer.getTheme();
   const next = current === 'light' ? 'dark' : 'light';
@@ -146,11 +197,12 @@ document.getElementById('toggle-theme')?.addEventListener('click', () => {
   }
 });
 
+// Print
 document.getElementById('print-btn')?.addEventListener('click', () => {
-  console.log('Print clicked');
   viewer?.print();
 });
 
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
     e.preventDefault();
@@ -170,7 +222,16 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     document.getElementById('search-input')?.focus();
   }
+  if (e.key === 'F3') {
+    e.preventDefault();
+    if (e.shiftKey) {
+      document.getElementById('prev-search')?.click();
+    } else {
+      document.getElementById('next-search')?.click();
+    }
+  }
 });
 
+// Expose viewer for debugging
 (window as any).__viewer = viewer;
 console.log('Dev controls ready. Load a file.');

@@ -1,9 +1,8 @@
 import { mountViewer as originalMountViewer } from '@file-viewer/web';
-import { pdfRenderer } from '@file-viewer/renderer-pdf';
 import { wordRenderer } from '@file-viewer/renderer-word';
 import { spreadsheetRenderer } from '@file-viewer/renderer-spreadsheet';
 import { presentationRenderer } from '@file-viewer/renderer-presentation';
-import type { ViewerOptions, ViewerAPI, ViewerEvent, PageChangeDetail } from './types/core';
+import type { ViewerOptions, ViewerAPI, PageChangeDetail } from './types/core';
 
 export async function mountViewer(
   container: HTMLElement,
@@ -11,7 +10,6 @@ export async function mountViewer(
 ): Promise<ViewerAPI> {
   const originalOptions: any = {
     renderers: options.renderers || [
-      pdfRenderer,
       wordRenderer,
       spreadsheetRenderer,
       presentationRenderer,
@@ -25,13 +23,10 @@ export async function mountViewer(
       maxMatches: options.search?.maxMatches || 1000,
       caseSensitive: options.search?.caseSensitive || false,
     },
-    pdf: {
-      toolbar: false,
-      navigation: false,
-      defaultNavigationVisible: false,
-    },
-    onEvent: (event: any) => {
-      // We'll handle events ourselves
+    onEvent: (nativeEvent: any) => {
+      if (options.onEvent) {
+        options.onEvent(nativeEvent);
+      }
     },
   };
 
@@ -42,7 +37,6 @@ export async function mountViewer(
 
   const element = container.querySelector('flyfish-file-viewer') as any;
 
-  // Safe zoom extraction
   const extractZoom = (zoom: any): number => {
     if (zoom === null || zoom === undefined) return 1;
     if (typeof zoom === 'number') return zoom;
@@ -52,34 +46,66 @@ export async function mountViewer(
     return 1;
   };
 
-  // Subscribe to state changes
-  if (controller.subscribe) {
-    controller.subscribe((state: any) => {
-      console.log('[State update]', state);
-      if (options.onEvent) {
-        options.onEvent({ type: 'state-change', detail: state });
-      }
-      if (state.page !== undefined && state.page !== null) {
-        const detail: PageChangeDetail = { page: state.page, totalPages: state.totalPages };
-        options.onEvent?.({ type: 'pageChange', detail });
-      }
-      if (state.zoom !== undefined && state.zoom !== null) {
-        const zoomVal = extractZoom(state.zoom);
-        options.onEvent?.({ type: 'zoom-change', detail: { zoom: zoomVal } });
-      }
-    });
-  }
-
-  // Helper to get current state
-  const getState = () => {
-    if (typeof controller.getState === 'function') {
-      return controller.getState();
-    }
+  const getViewState = () => {
     if (typeof controller.getViewState === 'function') {
       return controller.getViewState();
     }
+    if (typeof controller.getState === 'function') {
+      return controller.getState();
+    }
     return {};
   };
+
+  const extractPage = (state: any): number | undefined => {
+    if (!state) return undefined;
+    let page = state.page ?? state.currentPage ?? state.pageNumber ?? state.pageIndex;
+    if (page !== undefined && page !== null) {
+      if (state.pageIndex !== undefined) return page + 1;
+      return page;
+    }
+    if (state.lastEvent) {
+      const evt = state.lastEvent;
+      page = evt.page ?? evt.currentPage ?? evt.pageNumber ?? evt.pageIndex;
+      if (page !== undefined && page !== null) {
+        if (evt.pageIndex !== undefined) return page + 1;
+        return page;
+      }
+    }
+    return undefined;
+  };
+
+  const extractTotalPages = (state: any): number => {
+    if (!state) return 0;
+    let total = state.totalPages ?? state.total ?? state.pageCount ?? state.numPages;
+    if (total !== undefined && total !== null) return total;
+    if (state.lastEvent) {
+      const evt = state.lastEvent;
+      total = evt.totalPages ?? evt.total ?? evt.pageCount ?? evt.numPages;
+      if (total !== undefined && total !== null) return total;
+    }
+    if (element?.totalPages) return element.totalPages;
+    if (element?.pageCount) return element.pageCount;
+    return 0;
+  };
+
+  if (controller.subscribe) {
+    controller.subscribe((state: any) => {
+      try {
+        const page = extractPage(state);
+        const total = extractTotalPages(state);
+        if (page !== undefined && page !== null && page > 0) {
+          const detail: PageChangeDetail = { page, totalPages: total };
+          options.onEvent?.({ type: 'pageChange', detail });
+        }
+        if (state?.zoom !== undefined && state?.zoom !== null) {
+          const zoomVal = extractZoom(state.zoom);
+          options.onEvent?.({ type: 'zoom-change', detail: { zoom: zoomVal } });
+        }
+      } catch (err) {
+        console.warn('Error processing state update:', err);
+      }
+    });
+  }
 
   const api: ViewerAPI = {
     async openFile(file: File | string): Promise<void> {
@@ -96,20 +122,21 @@ export async function mountViewer(
       await controller.applyViewState({ page });
     },
     getCurrentPage(): number {
-      const state = getState();
-      return state.page ?? 0;
+      const state = getViewState();
+      const page = extractPage(state);
+      return page ?? 0;
     },
     getTotalPages(): number {
-      const state = getState();
-      return state.totalPages ?? 0;
+      const state = getViewState();
+      return extractTotalPages(state);
     },
 
     async setZoom(zoom: number): Promise<void> {
       await controller.applyViewState({ zoom });
     },
     getZoom(): number {
-      const state = getState();
-      return extractZoom(state.zoom);
+      const state = getViewState();
+      return extractZoom(state?.zoom);
     },
     async zoomIn(step: number = 0.1): Promise<void> {
       if (typeof controller.zoomIn === 'function') {

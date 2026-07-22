@@ -161,7 +161,7 @@
 
   <div id="toolbar">
     <label for="file-picker">Choose File</label>
-    <input id="file-picker" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
+    <input id="file-picker" type="file" accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx" />
     <span id="file-name">No file selected</span>
   </div>
 
@@ -183,6 +183,8 @@
 
     <input id="search-input" type="text" placeholder="Search..." title="Search (Ctrl+F)" />
     <button id="search-btn">Search</button>
+    <button id="prev-search" title="Previous match (Shift+F3)">&lt;</button>
+    <button id="next-search" title="Next match (F3)">&gt;</button>
 
     <span class="sep">|</span>
 
@@ -199,7 +201,7 @@
   </div>
 
   <div class="dev-badge">DEV MODE</div>
-  <div class="shortcuts-hint">Ctrl+/-/0 · &larr;/&rarr; · Ctrl+F</div>
+  <div class="shortcuts-hint">Ctrl+/-/0 · &larr;/&rarr; · Ctrl+F · F3</div>
 
   <script type="module" src="./main.tsx"></script>
 </body>
