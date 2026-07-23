@@ -1,34 +1,29 @@
 {
   "name": "vaultar-file-viewer",
-  "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "File viewer library for Vaultar Android app",
+  "main": "dist/index.umd.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "dev": "vite --open /src/dev/index.html",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "build:android": "vite build"
+    "clean": "rm -rf dist"
   },
+  "keywords": [],
   "dependencies": {
-    "@file-viewer/preset-office": "^2.4.0",
-    "@file-viewer/react": "^2.4.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "@file-viewer/renderer-pdf": "^2.4.0",
+    "@file-viewer/renderer-presentation": "^2.4.0",
+    "@file-viewer/renderer-spreadsheet": "^2.4.0",
+    "@file-viewer/renderer-word": "^2.4.0",
+    "@file-viewer/web": "^2.4.0"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@file-viewer/vite-plugin": "^2.4.0",
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
-    "@vitejs/plugin-react": "^6.1.0",
-    "eslint": "^10.9.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.4",
-    "globals": "^17.11.0",
-    "typescript": "~6.0.2",
-    "typescript-eslint": "^8.67.0",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
     "vite": "^8.2.2"
   }
 }

@@ -1,47 +1,41 @@
-import { defineConfig, type Plugin } from 'vite';
-import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 import { fileViewerRenderers } from '@file-viewer/vite-plugin';
-
-function removeDuplicateVendorAssets(): Plugin {
-    return {
-        name: 'remove-duplicate-vendor-assets',
-        enforce: 'post',
-        generateBundle(_options, bundle) {
-            // Updated regex to catch:
-            // 1. .wasm and .otf files
-            // 2. Any file containing "worker" (like pdf.worker, pptx.worker) with .js or .mjs
-            // 3. frame-cache .mjs files
-            const duplicatePattern = /\.(wasm|otf)$|(worker.*|frame-cache)-[a-zA-Z0-9_-]+\.(js|mjs)$/i;
-
-            for (const fileName of Object.keys(bundle)) {
-                if (fileName.startsWith('static/') && duplicatePattern.test(fileName)) {
-                    delete bundle[fileName];
-                }
-            }
-        },
-    };
-}
+import { resolve } from 'path';
 
 export default defineConfig({
-    plugins: [
-        react(),
-        fileViewerRenderers({
-            copyAssets: true, 
-        }),
-        removeDuplicateVendorAssets(),
-    ],
-    build: {
-        outDir: 'build',
-        assetsDir: 'static',
-        sourcemap: false,
-        minify: 'esbuild',
-        rollupOptions: {
-            output: {
-                manualChunks: undefined,
-            },
-        },
+  plugins: [
+    fileViewerRenderers({
+      formats: [
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'ppt',
+        'pptx',
+      ],
+      copyAssets: true,
+      chunkStrategy: 'renderer',
+    }),
+  ],
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    lib: {
+      entry: resolve(__dirname, 'src/index.tsx'),
+      name: 'FileViewer',
+      fileName: (format) => `index.${format}.js`,
+      formats: ['umd'],
     },
-    esbuild: {
-        drop: ['console', 'debugger'],
+    rollupOptions: {
+      external: [],
+      output: {
+        inlineDynamicImports: false,
+      },
     },
+  },
+  // Development server
+  server: {
+    open: '/src/dev/index.html',
+  },
 });
