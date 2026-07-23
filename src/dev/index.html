@@ -1,185 +1,206 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vaultar File Viewer - Dev</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vaultar File Viewer - Dev</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
 
-        #toolbar {
-            position: absolute;
-            z-index: 20;
-            top: 12px;
-            left: 12px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 8px 14px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-        }
+    #toolbar {
+      position: absolute;
+      z-index: 20;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    }
 
-        #toolbar label {
-            cursor: pointer;
-            padding: 4px 14px;
-            background: #1a73e8;
-            color: white;
-            border-radius: 4px;
-            font-size: 13px;
-        }
+    #toolbar label {
+      cursor: pointer;
+      padding: 4px 14px;
+      background: #1a73e8;
+      color: white;
+      border-radius: 4px;
+      font-size: 13px;
+    }
 
-        #toolbar label:hover {
-            background: #1557b0;
-        }
+    #toolbar label:hover {
+      background: #1557b0;
+    }
 
-        #toolbar input[type="file"] {
-            display: none;
-        }
+    #toolbar input[type="file"] {
+      display: none;
+    }
 
-        #file-name {
-            font-size: 13px;
-            color: #555;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+    #file-name {
+      font-size: 13px;
+      color: #555;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
-        #controls {
-            position: absolute;
-            z-index: 20;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: none;
-            gap: 8px;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.95);
-            padding: 8px 16px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-            flex-wrap: wrap;
-        }
+    #controls {
+      position: absolute;
+      z-index: 20;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      gap: 8px;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 8px 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      flex-wrap: wrap;
+    }
 
-        #controls button {
-            padding: 4px 12px;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
+    #controls button {
+      padding: 4px 12px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
 
-        #controls button:hover {
-            background: #f0f0f0;
-        }
+    #controls button:hover {
+      background: #f0f0f0;
+    }
 
-        #controls input[type="text"] {
-            padding: 4px 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
-            width: 120px;
-        }
+    #controls button:active {
+      background: #ddd;
+    }
 
-        #controls .sep {
-            color: #ccc;
-            margin: 0 4px;
-        }
+    #controls input[type="text"] {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      width: 120px;
+    }
 
-        #zoom-level,
-        #theme-label {
-            font-size: 12px;
-            color: #555;
-            min-width: 40px;
-        }
+    #controls input[type="text"]:focus {
+      outline: none;
+      border-color: #1a73e8;
+    }
 
-        #viewer {
-            width: 100%;
-            height: 100%;
-        }
+    #controls .sep {
+      color: #ccc;
+      margin: 0 4px;
+    }
 
-        .dev-badge {
-            position: absolute;
-            z-index: 10;
-            bottom: 80px;
-            right: 12px;
-            background: rgba(0, 0, 0, 0.65);
-            color: #4fc3f7;
-            padding: 3px 12px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-family: monospace;
-            pointer-events: none;
-            opacity: 0.4;
-        }
-    </style>
+    #zoom-level,
+    #theme-label,
+    #page-display {
+      font-size: 12px;
+      color: #555;
+      min-width: 40px;
+      text-align: center;
+    }
+
+    #page-display {
+      min-width: 60px;
+    }
+
+    #viewer {
+      width: 100%;
+      height: 100%;
+    }
+
+    .dev-badge {
+      position: absolute;
+      z-index: 10;
+      bottom: 80px;
+      right: 12px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #4fc3f7;
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-family: monospace;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    .shortcuts-hint {
+      position: absolute;
+      z-index: 10;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: rgba(0, 0, 0, 0.3);
+      pointer-events: none;
+      font-family: monospace;
+    }
+  </style>
 </head>
-
 <body>
 
-    <div id="toolbar">
-        <label for="file-picker">Choose File</label>
-        <input id="file-picker" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
-        <span id="file-name">No file selected</span>
-    </div>
+  <div id="toolbar">
+    <label for="file-picker">Choose File</label>
+    <input id="file-picker" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx" />
+    <span id="file-name">No file selected</span>
+  </div>
 
-    <div id="viewer"></div>
+  <div id="viewer"></div>
 
-    <div id="controls">
-        <!-- Zoom -->
-        <button id="zoom-out">-</button>
-        <span id="zoom-level">100%</span>
-        <button id="zoom-in">+</button>
-        <button id="zoom-fit">Fit</button>
+  <div id="controls">
+    <button id="zoom-out" title="Zoom Out (Ctrl+-)">-</button>
+    <span id="zoom-level">100%</span>
+    <button id="zoom-in" title="Zoom In (Ctrl+=)">+</button>
+    <button id="zoom-fit" title="Fit to Width (Ctrl+0)">Fit</button>
 
-        <span class="sep">|</span>
+    <span class="sep">|</span>
 
-        <!-- Navigation -->
-        <button id="prev-page">&lt;</button>
-        <button id="next-page">&gt;</button>
+    <button id="prev-page" title="Previous Page (&larr;)">&lt;</button>
+    <span id="page-display">0 / 0</span>
+    <button id="next-page" title="Next Page (&rarr;)">&gt;</button>
 
-        <span class="sep">|</span>
+    <span class="sep">|</span>
 
-        <!-- Search -->
-        <input id="search-input" type="text" placeholder="Search..." />
-        <button id="search-btn">Search</button>
+    <input id="search-input" type="text" placeholder="Search..." title="Search (Ctrl+F)" />
+    <button id="search-btn">Search</button>
 
-        <span class="sep">|</span>
+    <span class="sep">|</span>
 
-        <!-- Highlight -->
-        <button id="add-highlight">Highlight</button>
+    <button id="add-highlight" title="Add Highlight from selection">Highlight</button>
 
-        <span class="sep">|</span>
+    <span class="sep">|</span>
 
-        <!-- Theme -->
-        <button id="toggle-theme">Theme</button>
-        <span id="theme-label">Theme: light</span>
+    <button id="toggle-theme">Theme</button>
+    <span id="theme-label">Theme: light</span>
 
-        <span class="sep">|</span>
+    <span class="sep">|</span>
 
-        <!-- Print -->
-        <button id="print-btn">Print</button>
-    </div>
+    <button id="print-btn" title="Print (Ctrl+P)">Print</button>
+  </div>
 
-    <div class="dev-badge">DEV MODE</div>
+  <div class="dev-badge">DEV MODE</div>
+  <div class="shortcuts-hint">Ctrl+/-/0 · &larr;/&rarr; · Ctrl+F</div>
 
-    <script type="module" src="./main.tsx"></script>
+  <script type="module" src="./main.tsx"></script>
 </body>
-
 </html>

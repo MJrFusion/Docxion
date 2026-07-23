@@ -1,7 +1,3 @@
-// ============================================================
-//  ANDROID BRIDGE
-// ============================================================
-
 export interface AndroidBridge {
   log(message: string): void;
   onPageChanged(page: number): void;
@@ -17,25 +13,16 @@ export interface AndroidBridge {
   removeHighlight(highlightId: number): void;
 }
 
-// ============================================================
-//  VIEWER EVENTS
-// ============================================================
-
 export interface HighlightDetail {
   pageIndex: number;
-  rect: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  };
+  rect: { left: number; top: number; right: number; bottom: number };
   color: number;
   text: string;
 }
 
 export interface PageChangeDetail {
   page: number;
-  totalPages: number;
+  totalPages?: number;
 }
 
 export interface ChangeColorDetail {
@@ -57,6 +44,15 @@ export interface ErrorDetail {
   code?: string;
 }
 
+export interface StateChangeDetail {
+  page?: number;
+  zoom?: number | { scale: number; label: string };
+  totalPages?: number;
+  loading?: boolean;
+  ready?: boolean;
+  // Add any other known state properties
+}
+
 export type ViewerEvent =
   | { type: 'highlight'; detail: HighlightDetail }
   | { type: 'pageChange'; detail: PageChangeDetail }
@@ -64,50 +60,36 @@ export type ViewerEvent =
   | { type: 'removeHighlight'; detail: RemoveHighlightDetail }
   | { type: 'zoom-change'; detail: ZoomChangeDetail }
   | { type: 'error'; detail: ErrorDetail }
-  | { type: 'ready'; detail: { timestamp: number } };
+  | { type: 'ready'; detail: { timestamp: number } }
+  | { type: 'state-change'; detail: StateChangeDetail };
 
-// ============================================================
-//  VIEWER API
-// ============================================================
-
+// Rest of interfaces...
 export interface ViewerAPI {
   openFile(file: File | string): Promise<void>;
   closeFile(): void;
   getCurrentFile(): File | string | null;
-
   goToPage(page: number): Promise<void>;
   getCurrentPage(): number;
   getTotalPages(): number;
-
   setZoom(zoom: number): Promise<void>;
   getZoom(): number;
   zoomIn(step?: number): Promise<void>;
   zoomOut(step?: number): Promise<void>;
   fitToWidth(): Promise<void>;
   fitToPage(): Promise<void>;
-
-  search(query: string): Promise<SearchResult[]>;
+  search(query: string): Promise<any[]>;
   clearSearch(): void;
   goToNextMatch(): Promise<void>;
   goToPreviousMatch(): Promise<void>;
-
-  addHighlight(
-    pageIndex: number,
-    rect: { left: number; top: number; right: number; bottom: number },
-    color: number
-  ): Promise<HighlightDetail>;
+  addHighlight(pageIndex: number, rect: any, color: number): Promise<any>;
   removeHighlight(highlightId: number): Promise<void>;
   changeHighlightColor(highlightId: number, newColor: number): Promise<void>;
-  getHighlights(): HighlightDetail[];
-
+  getHighlights(): any[];
   getSelectedText(): string | null;
   clearSelection(): void;
-
   setTheme(theme: 'light' | 'dark'): void;
   getTheme(): 'light' | 'dark';
-
   print(): void;
-
   destroy(): void;
   isReady(): boolean;
 }
@@ -118,21 +100,12 @@ export interface SearchResult {
   rect: { left: number; top: number; right: number; bottom: number };
 }
 
-// ============================================================
-//  VIEWER OPTIONS
-// ============================================================
-
 export interface ViewerOptions {
   file?: File | string;
   theme?: 'light' | 'dark';
   renderers?: any[];
   rendererMode?: 'replace' | 'append';
-  search?: {
-    maxMatches?: number;
-    caseSensitive?: boolean;
-  };
-  pdf?: {
-    navigation?: boolean;
-  };
+  search?: { maxMatches?: number; caseSensitive?: boolean };
+  pdf?: { navigation?: boolean };
   onEvent?: (event: ViewerEvent) => void;
 }
