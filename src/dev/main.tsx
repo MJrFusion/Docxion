@@ -8,6 +8,8 @@ const controls = document.getElementById('controls') as HTMLElement;
 
 let viewer: ViewerAPI | null = null;
 
+const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+
 picker.addEventListener('change', async (event: Event) => {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -21,6 +23,10 @@ picker.addEventListener('change', async (event: Event) => {
     theme: 'light',
     rendererMode: 'replace',
     search: { maxMatches: 1000, caseSensitive: false },
+    presentation: {
+      pptWorkerUrl: baseUrl + 'vendor/ppt/worker.mjs',
+      pptxWorkerUrl: baseUrl + 'vendor/pptx/pptx.worker.js',
+    },
     onEvent: (event) => {
       console.log('>> onEvent:', event.type, event.detail);
       if (event.type === 'pageChange') {
@@ -33,20 +39,24 @@ picker.addEventListener('change', async (event: Event) => {
     },
   };
 
-  viewer = await mountViewer(container, options);
-  controls.style.display = 'flex';
-  updateZoomDisplay();
-  updatePageDisplay();
+  try {
+    viewer = await mountViewer(container, options);
+    controls.style.display = 'flex';
+    updateZoomDisplay();
+    updatePageDisplay();
 
-  console.log('Viewer API:', viewer);
+    console.log('Viewer API:', viewer);
 
-  setTimeout(() => {
-    if (viewer) {
-      console.log('Test getCurrentPage:', viewer.getCurrentPage());
-      console.log('Test getTotalPages:', viewer.getTotalPages());
-      console.log('Test getZoom:', viewer.getZoom());
-    }
-  }, 2000);
+    setTimeout(() => {
+      if (viewer) {
+        console.log('Test getCurrentPage:', viewer.getCurrentPage());
+        console.log('Test getTotalPages:', viewer.getTotalPages());
+        console.log('Test getZoom:', viewer.getZoom());
+      }
+    }, 2000);
+  } catch (error) {
+    console.error('Error initializing viewer:', error);
+  }
 });
 
 function updateZoomDisplay() {
@@ -119,7 +129,7 @@ document.getElementById('search-input')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('search-btn')?.click();
 });
 
-// Next/Prev search buttons (dynamically added)
+// Next/Prev search buttons
 const nextSearchBtn = document.getElementById('next-search');
 const prevSearchBtn = document.getElementById('prev-search');
 if (nextSearchBtn) {
@@ -163,7 +173,6 @@ document.getElementById('add-highlight')?.addEventListener('click', async () => 
     bottom: rect.bottom - containerRect.top,
   };
 
-  // Ensure positive dimensions
   if (adjustedRect.left < 0) adjustedRect.left = 0;
   if (adjustedRect.top < 0) adjustedRect.top = 0;
   if (adjustedRect.right < adjustedRect.left) {

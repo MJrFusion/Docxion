@@ -23,6 +23,7 @@ export async function mountViewer(
       maxMatches: options.search?.maxMatches || 1000,
       caseSensitive: options.search?.caseSensitive || false,
     },
+    presentation: options.presentation,
     onEvent: (nativeEvent: any) => {
       if (options.onEvent) {
         options.onEvent(nativeEvent);

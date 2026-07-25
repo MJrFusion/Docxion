@@ -50,7 +50,6 @@ export interface StateChangeDetail {
   totalPages?: number;
   loading?: boolean;
   ready?: boolean;
-  // Add any other known state properties
 }
 
 export type ViewerEvent =
@@ -105,6 +104,9 @@ export interface ViewerOptions {
   renderers?: any[];
   rendererMode?: 'replace' | 'append';
   search?: { maxMatches?: number; caseSensitive?: boolean };
-  pdf?: { navigation?: boolean };
+  presentation?: {
+    pptWorkerUrl?: string;   // for legacy .ppt
+    pptxWorkerUrl?: string;  // for .pptx
+  };
   onEvent?: (event: ViewerEvent) => void;
 }
