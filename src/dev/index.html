@@ -1,208 +1,270 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vaultar File Viewer - Dev</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    <meta charset="UTF-8" />
 
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    }
+    <meta name="viewport" conte nt="width=device-width, initial-scale=1.0" />
 
-    #toolbar {
-      position: absolute;
-      z-index: 20;
-      top: 12px;
-      left: 12px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 8px 14px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-    }
+    <title>Vaultar File Viewer - Dev</title>
 
-    #toolbar label {
-      cursor: pointer;
-      padding: 4px 14px;
-      background: #1a73e8;
-      color: white;
-      border-radius: 4px;
-      font-size: 13px;
-    }
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-    #toolbar label:hover {
-      background: #1557b0;
-    }
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
 
-    #toolbar input[type="file"] {
-      display: none;
-    }
+            font-family:
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                Roboto,
+                sans-serif;
+        }
 
-    #file-name {
-      font-size: 13px;
-      color: #555;
-      max-width: 200px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+        body {
+            background: #f5f5f5;
+        }
 
-    #controls {
-      position: absolute;
-      z-index: 20;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: none;
-      gap: 8px;
-      align-items: center;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 8px 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-      flex-wrap: wrap;
-    }
+        #dev-header {
+            position: fixed;
 
-    #controls button {
-      padding: 4px 12px;
-      border: 1px solid #ddd;
-      background: white;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
-      transition: background 0.15s;
-    }
+            top: 0;
+            right: 0;
+            left: 0;
 
-    #controls button:hover {
-      background: #f0f0f0;
-    }
+            z-index: 1000;
 
-    #controls button:active {
-      background: #ddd;
-    }
+            display: flex;
+            align-items: center;
+            gap: 8px;
 
-    #controls input[type="text"] {
-      padding: 4px 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 12px;
-      width: 120px;
-    }
+            min-height: 48px;
+            padding: 8px 12px;
 
-    #controls input[type="text"]:focus {
-      outline: none;
-      border-color: #1a73e8;
-    }
+            background: #fff;
+            border-bottom: 1px solid #ddd;
 
-    #controls .sep {
-      color: #ccc;
-      margin: 0 4px;
-    }
+            overflow-x: auto;
+            overflow-y: hidden;
 
-    #zoom-level,
-    #theme-label,
-    #page-display {
-      font-size: 12px;
-      color: #555;
-      min-width: 40px;
-      text-align: center;
-    }
+            white-space: nowrap;
+        }
 
-    #page-display {
-      min-width: 60px;
-    }
+        #dev-header button {
+            height: 30px;
+            padding: 0 10px;
 
-    #viewer {
-      width: 100%;
-      height: 100%;
-    }
+            border: 1px solid #ccc;
+            border-radius: 4px;
 
-    .dev-badge {
-      position: absolute;
-      z-index: 10;
-      bottom: 80px;
-      right: 12px;
-      background: rgba(0, 0, 0, 0.65);
-      color: #4fc3f7;
-      padding: 3px 12px;
-      border-radius: 12px;
-      font-size: 10px;
-      font-family: monospace;
-      pointer-events: none;
-      opacity: 0.4;
-    }
+            background: #fff;
+            color: #222;
 
-    .shortcuts-hint {
-      position: absolute;
-      z-index: 10;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 10px;
-      color: rgba(0, 0, 0, 0.3);
-      pointer-events: none;
-      font-family: monospace;
-    }
-  </style>
+            font-family: inherit;
+            font-size: 13px;
+
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #dev-header button:hover:not(:disabled) {
+            background: #f2f2f2;
+        }
+
+        #dev-header button:active:not(:disabled) {
+            background: #e8e8e8;
+        }
+
+        #dev-header button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        #file-picker {
+            display: none;
+        }
+
+        #file-name {
+            min-width: 100px;
+            max-width: 260px;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+
+            color: #666;
+            font-size: 13px;
+        }
+
+        #search-input {
+            width: 180px;
+            height: 30px;
+            padding: 0 8px;
+
+            border: 1px solid #ccc;
+            border-radius: 4px;
+
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        #search-input:focus {
+            outline: 2px solid #999;
+            outline-offset: 1px;
+        }
+
+        .separator {
+            width: 1px;
+            height: 24px;
+
+            flex: 0 0 auto;
+
+            background: #ddd;
+        }
+
+        #status {
+            position: fixed;
+
+            right: 12px;
+            bottom: 12px;
+
+            z-index: 1001;
+
+            max-width: 420px;
+            padding: 8px 12px;
+
+            border: 1px solid #ddd;
+            border-radius: 4px;
+
+            background: rgba(255, 255, 255, 0.95);
+            color: #555;
+
+            font-size: 12px;
+
+            pointer-events: none;
+        }
+
+        #viewer {
+            position: absolute;
+
+            top: 48px;
+            right: 0;
+            bottom: 0;
+            left: 0;
+
+            width: 100%;
+            height: calc(100% - 48px);
+        }
+    </style>
+
 </head>
+
 <body>
 
-  <div id="toolbar">
-    <label for="file-picker">Choose File</label>
-    <input id="file-picker" type="file" accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx" />
-    <span id="file-name">No file selected</span>
-  </div>
+    <header id="dev-header">
 
-  <div id="viewer"></div>
+        <button id="open" type="button">
+            Open
+        </button>
 
-  <div id="controls">
-    <button id="zoom-out" title="Zoom Out (Ctrl+-)">-</button>
-    <span id="zoom-level">100%</span>
-    <button id="zoom-in" title="Zoom In (Ctrl+=)">+</button>
-    <button id="zoom-fit" title="Fit to Width (Ctrl+0)">Fit</button>
+        <input id="file-picker" type="file" accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx" />
 
-    <span class="sep">|</span>
+        <span id="file-name">
+            No document selected
+        </span>
 
-    <button id="prev-page" title="Previous Page (&larr;)">&lt;</button>
-    <span id="page-display">0 / 0</span>
-    <button id="next-page" title="Next Page (&rarr;)">&gt;</button>
+        <button id="close" type="button" disabled>
+            Close
+        </button>
 
-    <span class="sep">|</span>
+        <span class="separator"></span>
 
-    <input id="search-input" type="text" placeholder="Search..." title="Search (Ctrl+F)" />
-    <button id="search-btn">Search</button>
-    <button id="prev-search" title="Previous match (Shift+F3)">&lt;</button>
-    <button id="next-search" title="Next match (F3)">&gt;</button>
+        <button id="previous" type="button" disabled title="Previous page">
+            ←
+        </button>
 
-    <span class="sep">|</span>
+        <button id="next" type="button" disabled title="Next page">
+            →
+        </button>
 
-    <button id="add-highlight" title="Add Highlight from selection">Highlight</button>
+        <span class="separator"></span>
 
-    <span class="sep">|</span>
+        <button id="zoom-out" type="button" disabled title="Zoom out">
+            −
+        </button>
 
-    <button id="toggle-theme">Theme</button>
-    <span id="theme-label">Theme: light</span>
+        <button id="zoom-in" type="button" disabled title="Zoom in">
+            +
+        </button>
 
-    <span class="sep">|</span>
+        <button id="fit-width" type="button" disabled>
+            Fit Width
+        </button>
 
-    <button id="print-btn" title="Print (Ctrl+P)">Print</button>
-  </div>
+        <button id="fit-page" type="button" disabled>
+            Fit Page
+        </button>
 
-  <div class="dev-badge">DEV MODE</div>
-  <div class="shortcuts-hint">Ctrl+/-/0 · &larr;/&rarr; · Ctrl+F · F3</div>
+        <span class="separator"></span>
 
-  <script type="module" src="./main.tsx"></script>
+        <input id="search-input" type="search" placeholder="Search document" autocomplete="off" />
+
+        <button id="search" type="button" disabled>
+            Search
+        </button>
+
+        <button id="previous-match" type="button" disabled title="Previous search match">
+            Previous Match
+        </button>
+
+        <button id="next-match" type="button" disabled title="Next search match">
+            Next Match
+        </button>
+
+        <button id="clear-search" type="button" disabled>
+            Clear Search
+        </button>
+
+        <span class="separator"></span>
+
+        <button id="light" type="button" disabled>
+            Light
+        </button>
+
+        <button id="dark" type="button" disabled>
+            Dark
+        </button>
+
+        <span class="separator"></span>
+
+        <button id="print" type="button" disabled>
+            Print
+        </button>
+
+        <span class="separator"></span>
+
+        <button id="destroy" type="button" disabled>
+            Destroy
+        </button>
+
+    </header>
+
+    <main id="viewer"></main>
+
+    <output id="status">
+        Viewer not initialized.
+    </output>
+
+    <script type="module" src="./main.tsx"></script>
+
 </body>
+
 </html>

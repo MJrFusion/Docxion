@@ -1,283 +1,861 @@
-import { mountViewer as originalMountViewer } from '@file-viewer/web';
-import { wordRenderer } from '@file-viewer/renderer-word';
-import { spreadsheetRenderer } from '@file-viewer/renderer-spreadsheet';
-import { presentationRenderer } from '@file-viewer/renderer-presentation';
-import type { ViewerOptions, ViewerAPI, PageChangeDetail } from './types/core';
+import {
+    mountViewer as originalMountViewer,
+} from '@file-viewer/web';
 
-export async function mountViewer(
-  container: HTMLElement,
-  options: ViewerOptions
-): Promise<ViewerAPI> {
-  const originalOptions: any = {
-    renderers: options.renderers || [
-      wordRenderer,
-      spreadsheetRenderer,
-      presentationRenderer,
-    ],
-    rendererMode: options.rendererMode || 'replace',
-    theme: options.theme || 'light',
-    toolbar: false,
-    sidebar: false,
-    search: {
-      enabled: true,
-      maxMatches: options.search?.maxMatches || 1000,
-      caseSensitive: options.search?.caseSensitive || false,
-    },
-    presentation: options.presentation,
-    onEvent: (nativeEvent: any) => {
-      if (options.onEvent) {
-        options.onEvent(nativeEvent);
-      }
-    },
-  };
+import {
+    wordRenderer,
+} from '@file-viewer/renderer-word';
 
-  const controller: any = await originalMountViewer(container, {
-    file: options.file as any,
-    options: originalOptions,
-  });
+import {
+    spreadsheetRenderer,
+} from '@file-viewer/renderer-spreadsheet';
 
-  const element = container.querySelector('flyfish-file-viewer') as any;
+import {
+    presentationRenderer,
+} from '@file-viewer/renderer-presentation';
 
-  const extractZoom = (zoom: any): number => {
-    if (zoom === null || zoom === undefined) return 1;
-    if (typeof zoom === 'number') return zoom;
-    if (typeof zoom === 'object' && zoom !== null && 'scale' in zoom) {
-      return zoom.scale;
-    }
-    return 1;
-  };
+import type {
+    SearchResult,
+    ViewerAPI,
+    ViewerOptions,
+} from './types/core';
 
-  const getViewState = () => {
-    if (typeof controller.getViewState === 'function') {
-      return controller.getViewState();
-    }
-    if (typeof controller.getState === 'function') {
-      return controller.getState();
-    }
-    return {};
-  };
+import {
+    ViewerBridge,
+} from './bridge';
 
-  const extractPage = (state: any): number | undefined => {
-    if (!state) return undefined;
-    let page = state.page ?? state.currentPage ?? state.pageNumber ?? state.pageIndex;
-    if (page !== undefined && page !== null) {
-      if (state.pageIndex !== undefined) return page + 1;
-      return page;
-    }
-    if (state.lastEvent) {
-      const evt = state.lastEvent;
-      page = evt.page ?? evt.currentPage ?? evt.pageNumber ?? evt.pageIndex;
-      if (page !== undefined && page !== null) {
-        if (evt.pageIndex !== undefined) return page + 1;
-        return page;
-      }
-    }
-    return undefined;
-  };
+import {
+    asRecord,
+    extractPage,
+    extractTotalPages,
+    extractZoom,
+    getErrorMessage,
+    getProperty,
+    normalizeSearchResults,
+} from './viewer-utils';
 
-  const extractTotalPages = (state: any): number => {
-    if (!state) return 0;
-    let total = state.totalPages ?? state.total ?? state.pageCount ?? state.numPages;
-    if (total !== undefined && total !== null) return total;
-    if (state.lastEvent) {
-      const evt = state.lastEvent;
-      total = evt.totalPages ?? evt.total ?? evt.pageCount ?? evt.numPages;
-      if (total !== undefined && total !== null) return total;
-    }
-    if (element?.totalPages) return element.totalPages;
-    if (element?.pageCount) return element.pageCount;
-    return 0;
-  };
+type WebViewerController = {
+    load?: (
+        options?: unknown
+    ) => Promise<void>;
 
-  if (controller.subscribe) {
-    controller.subscribe((state: any) => {
-      try {
-        const page = extractPage(state);
-        const total = extractTotalPages(state);
-        if (page !== undefined && page !== null && page > 0) {
-          const detail: PageChangeDetail = { page, totalPages: total };
-          options.onEvent?.({ type: 'pageChange', detail });
-        }
-        if (state?.zoom !== undefined && state?.zoom !== null) {
-          const zoomVal = extractZoom(state.zoom);
-          options.onEvent?.({ type: 'zoom-change', detail: { zoom: zoomVal } });
-        }
-      } catch (err) {
-        console.warn('Error processing state update:', err);
-      }
-    });
-  }
+    update?: (
+        options?: unknown
+    ) => Promise<void> | void;
 
-  const api: ViewerAPI = {
-    async openFile(file: File | string): Promise<void> {
-      element.file = file;
-    },
-    closeFile(): void {
-      element.file = null;
-    },
-    getCurrentFile(): File | string | null {
-      return element.file || null;
-    },
+    reload?: () => Promise<void>;
 
-    async goToPage(page: number): Promise<void> {
-      await controller.applyViewState({ page });
-    },
-    getCurrentPage(): number {
-      const state = getViewState();
-      const page = extractPage(state);
-      return page ?? 0;
-    },
-    getTotalPages(): number {
-      const state = getViewState();
-      return extractTotalPages(state);
-    },
+    destroy?: () => void;
 
-    async setZoom(zoom: number): Promise<void> {
-      await controller.applyViewState({ zoom });
-    },
-    getZoom(): number {
-      const state = getViewState();
-      return extractZoom(state?.zoom);
-    },
-    async zoomIn(step: number = 0.1): Promise<void> {
-      if (typeof controller.zoomIn === 'function') {
-        await controller.zoomIn();
-      } else {
-        const current = this.getZoom();
-        await this.setZoom(Math.min(4, current + step));
-      }
-    },
-    async zoomOut(step: number = 0.1): Promise<void> {
-      if (typeof controller.zoomOut === 'function') {
-        await controller.zoomOut();
-      } else {
-        const current = this.getZoom();
-        await this.setZoom(Math.max(0.5, current - step));
-      }
-    },
-    async fitToWidth(): Promise<void> {
-      if (typeof controller.fitToView === 'function') {
-        await controller.fitToView('width');
-      } else if (typeof controller.fitToWidth === 'function') {
-        await controller.fitToWidth();
-      } else {
-        await this.setZoom(1);
-      }
-    },
-    async fitToPage(): Promise<void> {
-      if (typeof controller.fitToView === 'function') {
-        await controller.fitToView('page');
-      } else if (typeof controller.fitToPage === 'function') {
-        await controller.fitToPage();
-      } else {
-        await this.setZoom(1);
-      }
-    },
+    subscribe?: (
+        listener: (
+            state: unknown
+        ) => void
+    ) => (() => void) | void;
 
-    async search(query: string): Promise<any[]> {
-      if (typeof controller.searchDocument === 'function') {
-        return await controller.searchDocument(query);
-      }
-      if (typeof controller.search === 'function') {
-        return await controller.search(query);
-      }
-      return [];
-    },
-    clearSearch(): void {
-      if (typeof controller.clearDocumentSearch === 'function') {
-        controller.clearDocumentSearch();
-      } else if (typeof controller.clearSearch === 'function') {
-        controller.clearSearch();
-      }
-    },
-    async goToNextMatch(): Promise<void> {
-      if (typeof controller.nextSearchResult === 'function') {
-        await controller.nextSearchResult();
-      } else if (typeof controller.goToNextMatch === 'function') {
-        await controller.goToNextMatch();
-      }
-    },
-    async goToPreviousMatch(): Promise<void> {
-      if (typeof controller.previousSearchResult === 'function') {
-        await controller.previousSearchResult();
-      } else if (typeof controller.goToPreviousMatch === 'function') {
-        await controller.goToPreviousMatch();
-      }
-    },
+    getViewState?: () => unknown;
 
-    async addHighlight(pageIndex: number, rect: any, color: number): Promise<any> {
-      if (typeof controller.addHighlight === 'function') {
-        const result = await controller.addHighlight(pageIndex, rect, color);
-        const detail = { pageIndex, rect, color, text: result.text || '' };
-        if (options.onEvent) {
-          options.onEvent({ type: 'highlight', detail });
-        }
-        return detail;
-      }
-      throw new Error('addHighlight not supported');
-    },
-    async removeHighlight(highlightId: number): Promise<void> {
-      if (typeof controller.removeHighlight === 'function') {
-        await controller.removeHighlight(highlightId);
-        if (options.onEvent) {
-          options.onEvent({ type: 'removeHighlight', detail: { highlightId } });
-        }
-      }
-    },
-    async changeHighlightColor(highlightId: number, newColor: number): Promise<void> {
-      if (typeof controller.changeHighlightColor === 'function') {
-        await controller.changeHighlightColor(highlightId, newColor);
-        const page = this.getCurrentPage();
-        if (options.onEvent) {
-          options.onEvent({ type: 'changeColor', detail: { highlightId, page, newColor } });
-        }
-      }
-    },
-    getHighlights(): any[] {
-      return controller.getHighlights?.() || [];
-    },
+    applyViewState?: (
+        state: unknown,
+        options?: unknown
+    ) => Promise<void> | void;
 
-    getSelectedText(): string | null {
-      return controller.getSelectedText?.() || null;
-    },
-    clearSelection(): void {
-      if (typeof controller.clearSelection === 'function') {
-        controller.clearSelection();
-      }
-    },
+    zoomIn?: (
+        step?: number
+    ) => Promise<void> | void;
 
-    setTheme(theme: 'light' | 'dark'): void {
-      if (element) {
-        element.theme = theme;
-        if (element.options) {
-          element.options.theme = theme;
-        }
-      }
-    },
-    getTheme(): 'light' | 'dark' {
-      return element?.theme || element?.options?.theme || 'light';
-    },
+    zoomOut?: (
+        step?: number
+    ) => Promise<void> | void;
 
-    print(): void {
-      if (typeof controller.printRenderedHtml === 'function') {
-        controller.printRenderedHtml();
-      } else if (typeof controller.print === 'function') {
-        controller.print();
-      }
-    },
+    resetZoom?: () => Promise<void> | void;
 
-    destroy(): void {
-      if (typeof controller.destroy === 'function') {
-        controller.destroy();
-      }
-      container.innerHTML = '';
-    },
-    isReady(): boolean {
-      return !!controller && !!element;
-    },
-  };
+    searchDocument?: (
+        query?: string
+    ) => Promise<unknown> | unknown;
 
-  return api;
+    nextSearchResult?: () => Promise<void> | void;
+
+    previousSearchResult?: () => Promise<void> | void;
+
+    clearSearch?: () => void;
+
+    printRenderedHtml?: (
+        options?: unknown
+    ) => Promise<void> | void;
+
+    downloadOriginalFile?: () => Promise<void> | void;
+
+    getOperationAvailability?: () => unknown;
+
+    getZoomState?: () => unknown;
+
+    getSearchState?: () => unknown;
+};
+
+type MountResult =
+    Awaited<
+        ReturnType<
+            typeof originalMountViewer
+        >
+    >;
+
+function asController(
+    value: MountResult
+): WebViewerController {
+    return value as unknown as WebViewerController;
 }
 
-export default { mountViewer };
+/**
+ * Calls a search navigation method when the current renderer
+ * exposes it.
+ *
+ * The search result itself is never stored here.
+ */
+async function navigateSearch(
+    controller: WebViewerController,
+    direction: 'next' | 'previous'
+): Promise<void> {
+    const method =
+        direction === 'next'
+            ? controller.nextSearchResult
+            : controller.previousSearchResult;
+
+    if (
+        typeof method === 'function'
+    ) {
+        await method.call(
+            controller
+        );
+
+        return;
+    }
+
+    /*
+     * Some renderer/controller versions expose search navigation
+     * through the search state rather than top-level methods.
+     *
+     * We intentionally do not keep our own result array. If the
+     * controller does not expose navigation, fail explicitly.
+     */
+    const searchState =
+        controller.getSearchState?.();
+
+    const state =
+        asRecord(
+            searchState
+        );
+
+    const navigation =
+        asRecord(
+            state?.navigation
+        );
+
+    const navigationMethod =
+        direction === 'next'
+            ? navigation?.next
+            : navigation?.previous;
+
+    if (
+        typeof navigationMethod === 'function'
+    ) {
+        await navigationMethod.call(
+            searchState
+        );
+
+        return;
+    }
+
+    throw new Error(
+        'Search-result navigation is not supported by the current viewer renderer.'
+    );
+}
+
+/**
+ * Mounts the file viewer and adapts the official controller API
+ * to the ViewerAPI exposed to Android.
+ */
+export async function mountViewer(
+    container: HTMLElement,
+    options: ViewerOptions
+): Promise<ViewerAPI> {
+    if (!container) {
+        throw new Error(
+            'A viewer container is required.'
+        );
+    }
+
+    const bridge =
+        new ViewerBridge(
+            options.androidBridge
+        );
+
+    const viewerOptions = {
+        renderers:
+            options.renderers ?? [
+                wordRenderer,
+                spreadsheetRenderer,
+                presentationRenderer,
+            ],
+
+        rendererMode:
+            'replace',
+
+        /*
+         * Keep the embedded viewer UI disabled permanently.
+         * The host application owns the toolbar.
+         */
+        toolbar:
+            false,
+
+        sidebar:
+            false,
+
+        /*
+         * Explicitly disable any presentation/renderer UI that
+         * could otherwise be enabled by a renderer configuration.
+         */
+        presentation: {
+            ...options.presentation,
+
+            toolbar:
+                false,
+
+            sidebar:
+                false,
+        },
+
+        theme:
+            options.theme ?? 'light',
+
+        search: {
+            enabled:
+                true,
+
+            maxMatches:
+                options.search?.maxMatches ??
+                1000,
+
+            caseSensitive:
+                options.search?.caseSensitive ??
+                false,
+        },
+
+        onEvent(
+            event: unknown
+        ): void {
+            handleViewerEvent(
+                event,
+                bridge
+            );
+        },
+    };
+
+    let controller: WebViewerController;
+
+    try {
+        const mounted =
+            await originalMountViewer(
+                container,
+                {
+                    file:
+                        options.file as never,
+
+                    options:
+                        viewerOptions as never,
+
+                    onEvent:
+                        viewerOptions.onEvent,
+                } as never
+            );
+
+        controller =
+            asController(
+                mounted
+            );
+    } catch (error) {
+        bridge.error(
+            getErrorMessage(error),
+            'VIEWER_MOUNT_ERROR'
+        );
+
+        throw error;
+    }
+
+    if (!controller) {
+        throw new Error(
+            'The file viewer controller was not created.'
+        );
+    }
+
+    const unsubscribe =
+        controller.subscribe?.(
+            (state: unknown) => {
+                const page =
+                    extractPage(
+                        state
+                    );
+
+                if (
+                    page !== undefined
+                ) {
+                    bridge.pageChanged(
+                        page,
+                        extractTotalPages(
+                            state
+                        )
+                    );
+                }
+
+                const zoom =
+                    extractZoom(
+                        getProperty(
+                            state,
+                            'zoom'
+                        )
+                    );
+
+                if (
+                    zoom !== undefined
+                ) {
+                    bridge.zoomChanged(
+                        zoom
+                    );
+                }
+            }
+        );
+
+    let currentFile:
+        | File
+        | string
+        | null =
+        options.file ??
+        null;
+
+    let destroyed =
+        false;
+
+    const api: ViewerAPI = {
+        async openFile(
+            file: File | string
+        ): Promise<void> {
+            if (destroyed) {
+                throw new Error(
+                    'Viewer has been destroyed.'
+                );
+            }
+
+            currentFile =
+                file;
+
+            if (
+                typeof controller.update ===
+                'function'
+            ) {
+                await controller.update(
+                    {
+                        file,
+                    }
+                );
+
+                return;
+            }
+
+            if (
+                typeof controller.load ===
+                'function'
+            ) {
+                await controller.load(
+                    {
+                        file,
+                    }
+                );
+
+                return;
+            }
+
+            throw new Error(
+                'Opening another file is not supported by the viewer controller.'
+            );
+        },
+
+        closeFile(): void {
+            currentFile =
+                null;
+
+            if (
+                typeof controller.update ===
+                'function'
+            ) {
+                void controller.update(
+                    {
+                        file: null,
+                    }
+                );
+            }
+        },
+
+        getCurrentFile():
+            | File
+            | string
+            | null {
+            return currentFile;
+        },
+
+        async goToPage(
+            page: number
+        ): Promise<void> {
+            if (
+                !Number.isFinite(page) ||
+                page < 1
+            ) {
+                throw new RangeError(
+                    'Page must be a positive number.'
+                );
+            }
+
+            const currentState =
+                controller.getViewState?.();
+
+            const state =
+                asRecord(
+                    currentState
+                );
+
+            if (
+                typeof controller.applyViewState ===
+                'function' &&
+                state
+            ) {
+                await controller.applyViewState(
+                    {
+                        ...state,
+                        page,
+                    },
+                    {
+                        source:
+                            'api',
+
+                        action:
+                            'go-to-page',
+                    }
+                );
+
+                return;
+            }
+
+            throw new Error(
+                'Page navigation is not supported by the current viewer controller.'
+            );
+        },
+
+        getCurrentPage(): number {
+            return (
+                extractPage(
+                    controller.getViewState?.()
+                ) ?? 0
+            );
+        },
+
+        getTotalPages(): number {
+            return extractTotalPages(
+                controller.getViewState?.()
+            );
+        },
+
+        async setZoom(
+            zoom: number
+        ): Promise<void> {
+            if (
+                !Number.isFinite(zoom) ||
+                zoom <= 0
+            ) {
+                throw new RangeError(
+                    'Zoom must be a positive number.'
+                );
+            }
+
+            const currentZoom =
+                api.getZoom();
+
+            if (
+                zoom === currentZoom
+            ) {
+                return;
+            }
+
+            if (
+                zoom < currentZoom
+            ) {
+                while (
+                    api.getZoom() >
+                    zoom
+                ) {
+                    const before =
+                        api.getZoom();
+
+                    if (
+                        typeof controller.zoomOut !==
+                        'function'
+                    ) {
+                        throw new Error(
+                            'Zoom-out is not supported by the viewer.'
+                        );
+                    }
+
+                    await controller.zoomOut();
+
+                    const after =
+                        api.getZoom();
+
+                    if (
+                        after >= before
+                    ) {
+                        break;
+                    }
+                }
+
+                return;
+            }
+
+            while (
+                api.getZoom() <
+                zoom
+            ) {
+                const before =
+                    api.getZoom();
+
+                if (
+                    typeof controller.zoomIn !==
+                    'function'
+                ) {
+                    throw new Error(
+                        'Zoom-in is not supported by the viewer.'
+                    );
+                }
+
+                await controller.zoomIn();
+
+                const after =
+                    api.getZoom();
+
+                if (
+                    after <= before
+                ) {
+                    break;
+                }
+            }
+        },
+
+        getZoom(): number {
+            const state =
+                controller.getViewState?.();
+
+            return (
+                extractZoom(
+                    getProperty(
+                        state,
+                        'zoom'
+                    )
+                ) ??
+                1
+            );
+        },
+
+        async zoomIn(
+            step?: number
+        ): Promise<void> {
+            if (
+                typeof controller.zoomIn !==
+                'function'
+            ) {
+                throw new Error(
+                    'Zoom-in is not supported by the viewer.'
+                );
+            }
+
+            await controller.zoomIn(
+                step
+            );
+        },
+
+        async zoomOut(
+            step?: number
+        ): Promise<void> {
+            if (
+                typeof controller.zoomOut !==
+                'function'
+            ) {
+                throw new Error(
+                    'Zoom-out is not supported by the viewer.'
+                );
+            }
+
+            await controller.zoomOut(
+                step
+            );
+        },
+
+        async fitToWidth(): Promise<void> {
+            if (
+                typeof controller.resetZoom !==
+                'function'
+            ) {
+                throw new Error(
+                    'Fit-to-width is not supported by the viewer controller.'
+                );
+            }
+
+            await controller.resetZoom();
+        },
+
+        async fitToPage(): Promise<void> {
+            if (
+                typeof controller.resetZoom !==
+                'function'
+            ) {
+                throw new Error(
+                    'Fit-to-page is not supported by the viewer controller.'
+                );
+            }
+
+            await controller.resetZoom();
+        },
+
+        async search(
+            query: string
+        ): Promise<SearchResult[]> {
+            const normalizedQuery =
+                query.trim();
+
+            if (
+                !normalizedQuery
+            ) {
+                return [];
+            }
+
+            if (
+                typeof controller.searchDocument !==
+                'function'
+            ) {
+                throw new Error(
+                    'Search is not supported by the viewer controller.'
+                );
+            }
+
+            /*
+             * The controller owns the active search state.
+             *
+             * We do not cache the returned matches.
+             */
+            const rawResults =
+                await controller.searchDocument(
+                    normalizedQuery
+                );
+
+            return normalizeSearchResults(
+                rawResults
+            );
+        },
+
+        clearSearch(): void {
+            controller.clearSearch?.();
+        },
+
+        async goToNextMatch(): Promise<void> {
+            await navigateSearch(
+                controller,
+                'next'
+            );
+        },
+
+        async goToPreviousMatch(): Promise<void> {
+            await navigateSearch(
+                controller,
+                'previous'
+            );
+        },
+
+        getSelectedText():
+            | string
+            | null {
+            return null;
+        },
+
+        clearSelection(): void {
+            /*
+             * No documented controller operation currently
+             * exposes clearing renderer selection.
+             */
+        },
+
+        setTheme(
+            theme: 'light' | 'dark'
+        ): void {
+            if (
+                typeof controller.update !==
+                'function'
+            ) {
+                throw new Error(
+                    'Changing the theme is not supported by the viewer controller.'
+                );
+            }
+
+            /*
+             * Re-apply the host-owned UI configuration together
+             * with the theme. This prevents an update from restoring
+             * the embedded viewer toolbar/sidebar.
+             */
+            void controller.update(
+                {
+                    options: {
+                        theme,
+
+                        toolbar:
+                            false,
+
+                        sidebar:
+                            false,
+
+                        presentation: {
+                            ...options.presentation,
+
+                            toolbar:
+                                false,
+
+                            sidebar:
+                                false,
+                        },
+                    },
+                }
+            );
+        },
+
+        getTheme():
+            | 'light'
+            | 'dark' {
+            const theme =
+                getProperty(
+                    controller.getViewState?.(),
+                    'theme'
+                );
+
+            if (
+                theme === 'dark' ||
+                theme === 'light'
+            ) {
+                return theme;
+            }
+
+            return (
+                options.theme ??
+                'light'
+            );
+        },
+
+        print(): void {
+            if (
+                typeof controller.printRenderedHtml !==
+                'function'
+            ) {
+                throw new Error(
+                    'Printing is not supported by the viewer controller.'
+                );
+            }
+
+            void controller.printRenderedHtml();
+        },
+
+        destroy(): void {
+            if (destroyed) {
+                return;
+            }
+
+            destroyed =
+                true;
+
+            unsubscribe?.();
+
+            controller.destroy?.();
+
+            currentFile =
+                null;
+
+            if (
+                container.isConnected
+            ) {
+                container.replaceChildren();
+            }
+        },
+
+        isReady(): boolean {
+            return !destroyed;
+        },
+    };
+
+    bridge.ready(
+        Date.now()
+    );
+
+    return api;
+}
+
+function handleViewerEvent(
+    event: unknown,
+    bridge: ViewerBridge
+): void {
+    const value =
+        asRecord(event);
+
+    if (!value) {
+        return;
+    }
+
+    const detail =
+        asRecord(
+            value.detail
+        );
+
+    switch (
+    value.type
+    ) {
+        case 'selection':
+        case 'text-selected': {
+            bridge.textSelected(
+                typeof detail?.text ===
+                    'string'
+                    ? detail.text
+                    : null
+            );
+
+            return;
+        }
+
+        case 'error': {
+            if (
+                typeof detail?.message !==
+                'string'
+            ) {
+                return;
+            }
+
+            bridge.error(
+                detail.message,
+
+                typeof detail.code ===
+                    'string'
+                    ? detail.code
+                    : undefined
+            );
+
+            return;
+        }
+
+        default:
+            return;
+    }
+}
+
+export default {
+    mountViewer,
+};
