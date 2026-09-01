@@ -9,6 +9,9 @@ build/
 *.ipr
 *.iws
 
+assets
+
+
 # Local configuration
 local.properties
 
