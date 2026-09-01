@@ -24,3 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Example"
 include ':app'
+include ':Docxion'
+project(':Docxion').projectDir = new File(settingsDir, '../Docxion')
