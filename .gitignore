@@ -1,0 +1,39 @@
+# Gradle
+.gradle/
+**/build/
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Local configuration
+local.properties
+**/local.properties
+
+# Android artifacts
+*.apk
+*.aab
+
+# Kotlin / Java
+.kotlin/
+*.class
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# Secrets
+*.jks
+*.keystore
