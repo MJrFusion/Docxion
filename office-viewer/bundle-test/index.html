@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Vaultar Office Viewer</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            background: #f5f5f5;
+            color: #171717;
+        }
+
+        .toolbar {
+            flex: 0 0 auto;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            min-height: 56px;
+            padding: 8px 12px;
+
+            background: #ffffff;
+            border-bottom: 1px solid #dedede;
+
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar-spacer {
+            flex: 1 1 auto;
+        }
+
+        button,
+        input {
+            font: inherit;
+        }
+
+        button {
+            height: 36px;
+            padding: 0 12px;
+
+            border: 1px solid #cfcfcf;
+            border-radius: 6px;
+
+            background: #ffffff;
+            color: #171717;
+
+            cursor: pointer;
+        }
+
+        button:hover:not(:disabled) {
+            background: #f1f1f1;
+        }
+
+        button:active:not(:disabled) {
+            background: #e7e7e7;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        input[type="text"] {
+            width: 240px;
+            height: 36px;
+
+            padding: 0 10px;
+
+            border: 1px solid #cfcfcf;
+            border-radius: 6px;
+
+            outline: none;
+            background: #ffffff;
+        }
+
+        input[type="text"]:focus {
+            border-color: #777;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-name {
+            max-width: 280px;
+
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+
+            color: #555;
+            font-size: 14px;
+        }
+
+        .search-count {
+            min-width: 70px;
+
+            color: #666;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .status {
+            flex: 0 0 auto;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            min-height: 30px;
+            padding: 0 12px;
+
+            border-bottom: 1px solid #dedede;
+
+            background: #fafafa;
+
+            color: #666;
+            font-size: 12px;
+        }
+
+        .status.error {
+            color: #a00000;
+            background: #fff5f5;
+        }
+
+        #viewer {
+            position: relative;
+
+            flex: 1 1 auto;
+
+            min-width: 0;
+            min-height: 0;
+
+            overflow: hidden;
+
+            background: #e9e9e9;
+        }
+
+        /*
+         * The embedded file viewer must never expose its own
+         * toolbar/sidebar. The library is also mounted with
+         * toolbar/sidebar disabled below.
+         */
+        #viewer>* {
+            width: 100%;
+            height: 100%;
+        }
+
+        .empty-state {
+            position: absolute;
+
+            inset: 0;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            color: #777;
+            font-size: 15px;
+
+            pointer-events: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="toolbar">
+
+        <div class="toolbar-group">
+            <button id="open" type="button">
+                Open Office File
+            </button>
+
+            <input id="file-picker" type="file" accept=".docx,.xlsx,.ppt,.pptx">
+
+            <span id="file-name" class="file-name">
+                No document selected
+            </span>
+        </div>
+
+        <div class="toolbar-spacer"></div>
+
+        <div class="toolbar-group">
+
+            <button id="previous" type="button" disabled>
+                Previous Page
+            </button>
+
+            <button id="next" type="button" disabled>
+                Next Page
+            </button>
+
+        </div>
+
+        <div class="toolbar-group">
+
+            <button id="zoom-out" type="button" disabled>
+                −
+            </button>
+
+            <button id="zoom-in" type="button" disabled>
+                +
+            </button>
+
+            <button id="fit-width" type="button" disabled>
+                Fit Width
+            </button>
+
+            <button id="fit-page" type="button" disabled>
+                Fit Page
+            </button>
+
+        </div>
+
+        <div class="toolbar-group">
+
+            <input id="search-input" type="text" placeholder="Search document..." autocomplete="off" spellcheck="false"
+                disabled>
+
+            <button id="search" type="button" disabled>
+                Search
+            </button>
+
+            <button id="previous-match" type="button" disabled>
+                ↑ Match
+            </button>
+
+            <button id="next-match" type="button" disabled>
+                ↓ Match
+            </button>
+
+            <button id="clear-search" type="button" disabled>
+                Clear
+            </button>
+
+            <span id="search-count" class="search-count"></span>
+
+        </div>
+
+        <div class="toolbar-group">
+
+            <button id="print" type="button" disabled>
+                Print
+            </button>
+
+            <button id="light" type="button" disabled>
+                Light
+            </button>
+
+            <button id="dark" type="button" disabled>
+                Dark
+            </button>
+
+            <button id="close" type="button" disabled>
+                Close
+            </button>
+
+            <button id="destroy" type="button" disabled>
+                Destroy
+            </button>
+
+        </div>
+
+    </div>
+
+    <div id="status" class="status">
+        Ready — Office files only
+    </div>
+
+    <main id="viewer">
+
+        <div id="empty-state" class="empty-state">
+            Open a DOCX, XLSX, PPT, or PPTX file.
+        </div>
+
+    </main>
+
+    <!--
+        IMPORTANT:
+        This is the UMD build produced by Vite.
+
+        It creates:
+            window.Docxion
+    -->
+    <script src="../dist/index.umd.js"></script>
+
+    <script>
+        (() => {
+            'use strict';
+
+            /*
+             * IMPORTANT:
+             *
+             * This MUST be `let`, not `const`.
+             *
+             * loadFile() replaces the controller every time
+             * a new document is opened.
+             */
+            let viewer = null;
+
+            const SUPPORTED_EXTENSIONS = new Set([
+                '.doc',
+                '.docx',
+                '.xls',
+                '.xlsx',
+                '.ppt',
+                '.pptx',
+            ]);
+
+            const filePicker =
+                document.getElementById(
+                    'file-picker'
+                );
+
+            const fileName =
+                document.getElementById(
+                    'file-name'
+                );
+
+            const viewerContainer =
+                document.getElementById(
+                    'viewer'
+                );
+
+            const emptyState =
+                document.getElementById(
+                    'empty-state'
+                );
+
+            const status =
+                document.getElementById(
+                    'status'
+                );
+
+            const openButton =
+                document.getElementById(
+                    'open'
+                );
+
+            const previousButton =
+                document.getElementById(
+                    'previous'
+                );
+
+            const nextButton =
+                document.getElementById(
+                    'next'
+                );
+
+            const zoomOutButton =
+                document.getElementById(
+                    'zoom-out'
+                );
+
+            const zoomInButton =
+                document.getElementById(
+                    'zoom-in'
+                );
+
+            const fitWidthButton =
+                document.getElementById(
+                    'fit-width'
+                );
+
+            const fitPageButton =
+                document.getElementById(
+                    'fit-page'
+                );
+
+            const searchInput =
+                document.getElementById(
+                    'search-input'
+                );
+
+            const searchButton =
+                document.getElementById(
+                    'search'
+                );
+
+            const previousMatchButton =
+                document.getElementById(
+                    'previous-match'
+                );
+
+            const nextMatchButton =
+                document.getElementById(
+                    'next-match'
+                );
+
+            const clearSearchButton =
+                document.getElementById(
+                    'clear-search'
+                );
+
+            const searchCount =
+                document.getElementById(
+                    'search-count'
+                );
+
+            const printButton =
+                document.getElementById(
+                    'print'
+                );
+
+            const lightButton =
+                document.getElementById(
+                    'light'
+                );
+
+            const darkButton =
+                document.getElementById(
+                    'dark'
+                );
+
+            const closeButton =
+                document.getElementById(
+                    'close'
+                );
+
+            const destroyButton =
+                document.getElementById(
+                    'destroy'
+                );
+
+            function setStatus(
+                message,
+                isError = false
+            ) {
+                status.textContent =
+                    message;
+
+                status.classList.toggle(
+                    'error',
+                    isError
+                );
+            }
+
+            function getFileExtension(
+                file
+            ) {
+                const name =
+                    file.name.toLowerCase();
+
+                const index =
+                    name.lastIndexOf('.');
+
+                if (index === -1) {
+                    return '';
+                }
+
+                return name.slice(index);
+            }
+
+            function isSupportedFile(
+                file
+            ) {
+                return (
+                    file instanceof File &&
+                    SUPPORTED_EXTENSIONS.has(
+                        getFileExtension(file)
+                    )
+                );
+            }
+
+            function requireViewer() {
+                if (!viewer) {
+                    throw new Error(
+                        'Viewer is not initialized.'
+                    );
+                }
+
+                return viewer;
+            }
+
+            function updateControls() {
+                const enabled =
+                    viewer !== null;
+
+                previousButton.disabled =
+                    !enabled;
+
+                nextButton.disabled =
+                    !enabled;
+
+                zoomOutButton.disabled =
+                    !enabled;
+
+                zoomInButton.disabled =
+                    !enabled;
+
+                fitWidthButton.disabled =
+                    !enabled;
+
+                fitPageButton.disabled =
+                    !enabled;
+
+                searchInput.disabled =
+                    !enabled;
+
+                searchButton.disabled =
+                    !enabled;
+
+                previousMatchButton.disabled =
+                    !enabled;
+
+                nextMatchButton.disabled =
+                    !enabled;
+
+                clearSearchButton.disabled =
+                    !enabled;
+
+                printButton.disabled =
+                    !enabled;
+
+                lightButton.disabled =
+                    !enabled;
+
+                darkButton.disabled =
+                    !enabled;
+
+                closeButton.disabled =
+                    !enabled;
+
+                destroyButton.disabled =
+                    !enabled;
+            }
+
+            function clearSearchUi() {
+                searchCount.textContent = '';
+            }
+
+            async function loadFile(file) {
+                if (!isSupportedFile(file)) {
+                    const extension =
+                        getFileExtension(file) ||
+                        'unknown';
+
+                    setStatus(
+                        `Unsupported file type: ${extension}. ` +
+                        'Only DOCX, XLSX, PPT, and PPTX are supported.',
+                        true
+                    );
+
+                    filePicker.value = '';
+
+                    return;
+                }
+
+                /*
+                 * Destroy the previous controller before
+                 * mounting a new document.
+                 */
+                if (viewer) {
+                    try {
+                        viewer.destroy();
+                    } catch (error) {
+                        console.warn(
+                            'Failed to destroy previous viewer:',
+                            error
+                        );
+                    }
+
+                    viewer = null;
+                }
+
+                /*
+                 * Do not remove the entire #viewer element.
+                 * Only remove its previous mounted contents.
+                 */
+                viewerContainer.replaceChildren();
+
+                fileName.textContent =
+                    file.name;
+
+                clearSearchUi();
+
+                updateControls();
+
+                setStatus(
+                    `Loading ${file.name}...`
+                );
+
+                const extension =
+                    getFileExtension(file);
+
+                /*
+                 * Worker paths are relative to this HTML file.
+                 */
+                const options = {
+                    file: file,
+
+                    theme: 'light',
+
+                    /*
+                     * These are intentionally disabled.
+                     *
+                     * The application owns the toolbar.
+                     */
+                    toolbar: false,
+                    sidebar: false,
+
+                    search: {
+                        enabled: true,
+                        maxMatches: 1000,
+                        caseSensitive: false,
+                    },
+
+                    /*
+                     * The renderer list is supplied explicitly,
+                     * but the UMD library already contains the
+                     * renderer implementations.
+                     */
+                    presentation: {
+                        pptWorkerUrl:
+                            new URL(
+                                './vendor/ppt/worker.mjs',
+                                window.location.href
+                            ).toString(),
+
+                        pptxWorkerUrl:
+                            new URL(
+                                './vendor/pptx/pptx.worker.js',
+                                window.location.href
+                            ).toString(),
+                    },
+                };
+
+                try {
+                    /*
+                     * The UMD export is expected to expose:
+                     *
+                     * window.Docxion.mountViewer
+                     */
+                    if (
+                        !window.Docxion ||
+                        typeof window.Docxion.mountViewer !==
+                        'function'
+                    ) {
+                        throw new Error(
+                            'Docxion.mountViewer() is not available.'
+                        );
+                    }
+
+                    /*
+                     * IMPORTANT:
+                     *
+                     * The adapter's mountViewer() expects
+                     * ViewerOptions directly.
+                     *
+                     * Do NOT pass:
+                     *
+                     * {
+                     *     options: options
+                     * }
+                     *
+                     * here.
+                     */
+                    viewer =
+                        await window.Docxion.mountViewer(
+                            viewerContainer,
+                            options
+                        );
+
+                    emptyState?.remove();
+
+                    updateControls();
+
+                    setStatus(
+                        `Loaded ${file.name}`
+                    );
+
+                } catch (error) {
+                    viewer = null;
+
+                    updateControls();
+
+                    console.error(
+                        'Failed to initialize viewer:',
+                        error
+                    );
+
+                    setStatus(
+                        error instanceof Error
+                            ? error.message
+                            : String(error),
+                        true
+                    );
+                }
+            }
+
+            async function openFilePicker() {
+                /*
+                 * Reset value so selecting the same file twice
+                 * still fires `change`.
+                 */
+                filePicker.value = '';
+
+                filePicker.click();
+            }
+
+            async function previousPage() {
+                const api =
+                    requireViewer();
+
+                const page =
+                    api.getCurrentPage();
+
+                if (page > 1) {
+                    await api.goToPage(
+                        page - 1
+                    );
+                }
+            }
+
+            async function nextPage() {
+                const api =
+                    requireViewer();
+
+                const page =
+                    api.getCurrentPage();
+
+                const totalPages =
+                    api.getTotalPages();
+
+                if (
+                    page > 0 &&
+                    page < totalPages
+                ) {
+                    await api.goToPage(
+                        page + 1
+                    );
+                }
+            }
+
+            async function zoomOut() {
+                await requireViewer().zoomOut();
+            }
+
+            async function zoomIn() {
+                await requireViewer().zoomIn();
+            }
+
+            async function fitWidth() {
+                await requireViewer().fitToWidth();
+            }
+
+            async function fitPage() {
+                await requireViewer().fitToPage();
+            }
+
+            async function search() {
+                const api =
+                    requireViewer();
+
+                const query =
+                    searchInput.value.trim();
+
+                if (!query) {
+                    return;
+                }
+
+                setStatus(
+                    `Searching for "${query}"...`
+                );
+
+                try {
+                    /*
+                     * Search is delegated directly to the
+                     * underlying renderer/controller.
+                     *
+                     * We do NOT maintain a search-results
+                     * array here.
+                     */
+                    const results =
+                        await api.search(
+                            query
+                        );
+
+                    const count =
+                        Array.isArray(results)
+                            ? results.length
+                            : 0;
+
+                    searchCount.textContent =
+                        count > 0
+                            ? `${count} match${count === 1 ? '' : 'es'}`
+                            : 'No matches';
+
+                    if (count > 0) {
+                        await api.goToNextMatch();
+
+                        setStatus(
+                            `${count} match${count === 1 ? '' : 'es'} found`
+                        );
+                    } else {
+                        setStatus(
+                            `No matches for "${query}"`
+                        );
+                    }
+
+                } catch (error) {
+                    console.error(
+                        'Search failed:',
+                        error
+                    );
+
+                    setStatus(
+                        error instanceof Error
+                            ? error.message
+                            : String(error),
+                        true
+                    );
+                }
+            }
+
+            async function previousMatch() {
+                await requireViewer()
+                    .goToPreviousMatch();
+            }
+
+            async function nextMatch() {
+                await requireViewer()
+                    .goToNextMatch();
+            }
+
+            function clearSearch() {
+                requireViewer()
+                    .clearSearch();
+
+                searchInput.value = '';
+
+                clearSearchUi();
+
+                setStatus(
+                    'Search cleared'
+                );
+            }
+
+            function print() {
+                requireViewer().print();
+            }
+
+            function setLightTheme() {
+                requireViewer()
+                    .setTheme('light');
+
+                setStatus(
+                    'Light theme'
+                );
+            }
+
+            function setDarkTheme() {
+                requireViewer()
+                    .setTheme('dark');
+
+                setStatus(
+                    'Dark theme'
+                );
+            }
+
+            function closeFile() {
+                requireViewer()
+                    .closeFile();
+
+                fileName.textContent =
+                    'No document selected';
+
+                searchInput.value = '';
+
+                clearSearchUi();
+
+                setStatus(
+                    'Document closed'
+                );
+            }
+
+            function destroyViewer() {
+                if (!viewer) {
+                    return;
+                }
+
+                try {
+                    viewer.destroy();
+                } finally {
+                    viewer = null;
+
+                    viewerContainer.replaceChildren();
+
+                    fileName.textContent =
+                        'No document selected';
+
+                    searchInput.value = '';
+
+                    clearSearchUi();
+
+                    updateControls();
+
+                    setStatus(
+                        'Viewer destroyed'
+                    );
+                }
+            }
+
+            function handleAction(
+                action
+            ) {
+                Promise.resolve()
+                    .then(action)
+                    .catch(error => {
+                        console.error(
+                            'Viewer action failed:',
+                            error
+                        );
+
+                        setStatus(
+                            error instanceof Error
+                                ? error.message
+                                : String(error),
+                            true
+                        );
+                    });
+            }
+
+            filePicker.addEventListener(
+                'change',
+                () => {
+                    const file =
+                        filePicker.files?.[0];
+
+                    if (!file) {
+                        return;
+                    }
+
+                    handleAction(
+                        () => loadFile(file)
+                    );
+                }
+            );
+
+            openButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        openFilePicker
+                    );
+                }
+            );
+
+            previousButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        previousPage
+                    );
+                }
+            );
+
+            nextButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        nextPage
+                    );
+                }
+            );
+
+            zoomOutButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        zoomOut
+                    );
+                }
+            );
+
+            zoomInButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        zoomIn
+                    );
+                }
+            );
+
+            fitWidthButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        fitWidth
+                    );
+                }
+            );
+
+            fitPageButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        fitPage
+                    );
+                }
+            );
+
+            searchButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        search
+                    );
+                }
+            );
+
+            previousMatchButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        previousMatch
+                    );
+                }
+            );
+
+            nextMatchButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        nextMatch
+                    );
+                }
+            );
+
+            clearSearchButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        clearSearch
+                    );
+                }
+            );
+
+            printButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        print
+                    );
+                }
+            );
+
+            lightButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        setLightTheme
+                    );
+                }
+            );
+
+            darkButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        setDarkTheme
+                    );
+                }
+            );
+
+            closeButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        closeFile
+                    );
+                }
+            );
+
+            destroyButton.addEventListener(
+                'click',
+                () => {
+                    handleAction(
+                        destroyViewer
+                    );
+                }
+            );
+
+            /*
+             * Enter in the search field performs search.
+             *
+             * There is deliberately NO window.prompt().
+             */
+            searchInput.addEventListener(
+                'keydown',
+                event => {
+                    if (
+                        event.key === 'Enter'
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            search
+                        );
+                    }
+
+                    if (
+                        event.key === 'Escape'
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            clearSearch
+                        );
+                    }
+                }
+            );
+
+            document.addEventListener(
+                'keydown',
+                event => {
+                    /*
+                     * Never hijack keyboard shortcuts while the
+                     * user is typing into the search box.
+                     */
+                    const target =
+                        event.target;
+
+                    const isTyping =
+                        target instanceof
+                        HTMLInputElement ||
+                        target instanceof
+                        HTMLTextAreaElement ||
+                        target instanceof
+                        HTMLSelectElement;
+
+                    if (isTyping) {
+                        return;
+                    }
+
+                    if (!viewer) {
+                        return;
+                    }
+
+                    const modifier =
+                        event.ctrlKey ||
+                        event.metaKey;
+
+                    if (
+                        modifier &&
+                        (
+                            event.key === '=' ||
+                            event.key === '+'
+                        )
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            zoomIn
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        modifier &&
+                        event.key === '-'
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            zoomOut
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        modifier &&
+                        event.key === '0'
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            fitWidth
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        modifier &&
+                        event.key.toLowerCase() === 'f'
+                    ) {
+                        event.preventDefault();
+
+                        searchInput.focus();
+
+                        return;
+                    }
+
+                    if (
+                        event.key === 'ArrowLeft'
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            previousPage
+                        );
+
+                        return;
+                    }
+
+                    if (
+                        event.key === 'ArrowRight'
+                    ) {
+                        event.preventDefault();
+
+                        handleAction(
+                            nextPage
+                        );
+                    }
+                }
+            );
+
+            /*
+             * Development console API.
+             */
+            window.viewerDev = {
+                state() {
+                    const api =
+                        requireViewer();
+
+                    console.log({
+                        ready:
+                            api.isReady(),
+
+                        file:
+                            api.getCurrentFile(),
+
+                        page:
+                            api.getCurrentPage(),
+
+                        totalPages:
+                            api.getTotalPages(),
+
+                        zoom:
+                            api.getZoom(),
+
+                        theme:
+                            api.getTheme(),
+                    });
+                },
+
+                open(file) {
+                    return loadFile(file);
+                },
+
+                page(page) {
+                    return requireViewer()
+                        .goToPage(page);
+                },
+
+                zoom(zoom) {
+                    return requireViewer()
+                        .setZoom(zoom);
+                },
+
+                zoomIn() {
+                    return requireViewer()
+                        .zoomIn();
+                },
+
+                zoomOut() {
+                    return requireViewer()
+                        .zoomOut();
+                },
+
+                fitWidth() {
+                    return requireViewer()
+                        .fitToWidth();
+                },
+
+                fitPage() {
+                    return requireViewer()
+                        .fitToPage();
+                },
+
+                search(query) {
+                    searchInput.value =
+                        query;
+
+                    return search();
+                },
+
+                nextMatch() {
+                    return nextMatch();
+                },
+
+                previousMatch() {
+                    return previousMatch();
+                },
+
+                clearSearch() {
+                    clearSearch();
+                },
+
+                print() {
+                    print();
+                },
+
+                light() {
+                    setLightTheme();
+                },
+
+                dark() {
+                    setDarkTheme();
+                },
+
+                close() {
+                    closeFile();
+                },
+
+                destroy() {
+                    destroyViewer();
+                },
+            };
+
+            updateControls();
+
+            /*
+             * Make the API easy to inspect from DevTools.
+             */
+            window.__viewer = null;
+
+            console.log(
+                'Vaultar Office Viewer ready.'
+            );
+
+            console.log(
+                'Supported formats:',
+                [...SUPPORTED_EXTENSIONS]
+            );
+
+            console.log(
+                'Console API:',
+                'viewerDev.state()',
+                'viewerDev.search("text")',
+                'viewerDev.nextMatch()',
+                'viewerDev.previousMatch()'
+            );
+        })();
+    </script>
+
+</body>
+
+</html>

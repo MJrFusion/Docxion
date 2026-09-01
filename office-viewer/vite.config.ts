@@ -14,7 +14,7 @@ export default defineConfig({
     sourcemap: false,
     lib: {
       entry: resolve(__dirname, 'src/index.tsx'),
-      name: 'VaultarFileViewer',
+      name: 'Docxion',
       fileName: (format) => `index.${format}.js`,
       formats: ['umd'],
     },

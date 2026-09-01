@@ -1,5 +1,5 @@
 {
-  "name": "vaultar-file-viewer",
+  "name": "docxion",
   "version": "1.0.0",
   "description": "File viewer library for Vaultar Android app",
   "main": "dist/index.umd.js",
