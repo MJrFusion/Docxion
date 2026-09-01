@@ -8,12 +8,35 @@ import org.json.JSONObject
 import timber.log.Timber
 import java.io.File
 
+/**
+ * Kotlin API for controlling the Docxion viewer running inside a [WebView].
+ *
+ * This class mirrors the public TypeScript `ViewerAPI` and forwards
+ * operations to `window.docxionApi` through JavaScript evaluation.
+ *
+ * The API supports opening documents from either an Android [Uri] or
+ * an absolute filesystem path.
+ *
+ * @param webView WebView hosting the Docxion viewer
+ */
 class DocxionWebViewApi(
     private val webView: WebView
 ) {
 
     private var temporaryFile: File? = null
 
+    /**
+     * Opens a document from an Android content [Uri].
+     *
+     * The URI contents are copied into the application's cache directory
+     * before being exposed to the Docxion WebView.
+     *
+     * The temporary copy is deleted when another URI is opened or when
+     * [destroy] is called.
+     *
+     * @param uri Android content URI of the document
+     * @throws IllegalArgumentException if the URI cannot be read
+     */
     fun openFile(uri: Uri) {
         val context = webView.context
 
@@ -32,6 +55,17 @@ class DocxionWebViewApi(
         openFile(file.absolutePath)
     }
 
+    /**
+     * Opens a document from an absolute filesystem path.
+     *
+     * The local file is registered with [DocxionWebView] and exposed to
+     * JavaScript through the WebView asset loader. JavaScript fetches the
+     * file, creates a browser [File], and passes it to `window.docxionApi`.
+     *
+     * @param file absolute filesystem path of the document
+     * @throws IllegalArgumentException if the path is not absolute or
+     * the file does not exist
+     */
     fun openFile(file: String) {
         val path = File(file)
 
@@ -118,6 +152,9 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Closes the currently opened document.
+     */
     fun closeFile() {
         evaluate(
             """
@@ -126,7 +163,15 @@ class DocxionWebViewApi(
         )
     }
 
-    fun getCurrentFile(callback: (String?) -> Unit) {
+    /**
+     * Returns the current document.
+     *
+     * @param callback receives the document value as a string, or null
+     * if no document is open
+     */
+    fun getCurrentFile(
+        callback: (String?) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.getCurrentFile();
@@ -136,6 +181,11 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Navigates to a page.
+     *
+     * @param page page number to navigate to
+     */
     fun goToPage(page: Int) {
         evaluate(
             """
@@ -144,7 +194,14 @@ class DocxionWebViewApi(
         )
     }
 
-    fun getCurrentPage(callback: (Int) -> Unit) {
+    /**
+     * Returns the current page number.
+     *
+     * @param callback receives the current page number
+     */
+    fun getCurrentPage(
+        callback: (Int) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.getCurrentPage();
@@ -157,7 +214,14 @@ class DocxionWebViewApi(
         }
     }
 
-    fun getTotalPages(callback: (Int) -> Unit) {
+    /**
+     * Returns the total number of pages.
+     *
+     * @param callback receives the total page count
+     */
+    fun getTotalPages(
+        callback: (Int) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.getTotalPages();
@@ -170,6 +234,11 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Sets the viewer zoom level.
+     *
+     * @param zoom zoom level
+     */
     fun setZoom(zoom: Double) {
         evaluate(
             """
@@ -178,7 +247,14 @@ class DocxionWebViewApi(
         )
     }
 
-    fun getZoom(callback: (Double) -> Unit) {
+    /**
+     * Returns the current zoom level.
+     *
+     * @param callback receives the current zoom level
+     */
+    fun getZoom(
+        callback: (Double) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.getZoom();
@@ -191,8 +267,14 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Increases the viewer zoom level.
+     *
+     * @param step optional zoom increment
+     */
     fun zoomIn(step: Double? = null) {
         val argument = step?.toString() ?: ""
+
         evaluate(
             """
             window.docxionApi.zoomIn($argument);
@@ -200,8 +282,14 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Decreases the viewer zoom level.
+     *
+     * @param step optional zoom decrement
+     */
     fun zoomOut(step: Double? = null) {
         val argument = step?.toString() ?: ""
+
         evaluate(
             """
             window.docxionApi.zoomOut($argument);
@@ -209,6 +297,9 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Fits the document to the available viewer width.
+     */
     fun fitToWidth() {
         evaluate(
             """
@@ -217,6 +308,9 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Fits the document to the available viewer page.
+     */
     fun fitToPage() {
         evaluate(
             """
@@ -225,7 +319,16 @@ class DocxionWebViewApi(
         )
     }
 
-    fun search(query: String, callback: (String) -> Unit) {
+    /**
+     * Searches the current document.
+     *
+     * @param query search query
+     * @param callback receives the JSON-encoded search results
+     */
+    fun search(
+        query: String,
+        callback: (String) -> Unit
+    ) {
         val encodedQuery = JSONObject.quote(query)
 
         evaluate(
@@ -237,6 +340,9 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Clears the current search results.
+     */
     fun clearSearch() {
         evaluate(
             """
@@ -245,6 +351,9 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Navigates to the next search match.
+     */
     fun goToNextMatch() {
         evaluate(
             """
@@ -253,6 +362,9 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Navigates to the previous search match.
+     */
     fun goToPreviousMatch() {
         evaluate(
             """
@@ -261,7 +373,15 @@ class DocxionWebViewApi(
         )
     }
 
-    fun getSelectedText(callback: (String?) -> Unit) {
+    /**
+     * Returns the currently selected text.
+     *
+     * @param callback receives the selected text, or null if there is
+     * no selection
+     */
+    fun getSelectedText(
+        callback: (String?) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.getSelectedText();
@@ -271,6 +391,9 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Clears the current text selection.
+     */
     fun clearSelection() {
         evaluate(
             """
@@ -279,6 +402,11 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Sets the viewer theme.
+     *
+     * @param theme either `light` or `dark`
+     */
     fun setTheme(theme: String) {
         require(theme == "light" || theme == "dark")
 
@@ -291,7 +419,14 @@ class DocxionWebViewApi(
         )
     }
 
-    fun getTheme(callback: (String) -> Unit) {
+    /**
+     * Returns the current viewer theme.
+     *
+     * @param callback receives `light` or `dark`
+     */
+    fun getTheme(
+        callback: (String) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.getTheme();
@@ -301,6 +436,9 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Prints the current document.
+     */
     fun print() {
         evaluate(
             """
@@ -309,6 +447,9 @@ class DocxionWebViewApi(
         )
     }
 
+    /**
+     * Destroys the JavaScript viewer and deletes any temporary URI file.
+     */
     fun destroy() {
         evaluate(
             """
@@ -320,7 +461,14 @@ class DocxionWebViewApi(
         temporaryFile = null
     }
 
-    fun isReady(callback: (Boolean) -> Unit) {
+    /**
+     * Returns whether the viewer is ready.
+     *
+     * @param callback receives true when the viewer is ready
+     */
+    fun isReady(
+        callback: (Boolean) -> Unit
+    ) {
         evaluate(
             """
             window.docxionApi.isReady();
@@ -333,6 +481,9 @@ class DocxionWebViewApi(
         }
     }
 
+    /**
+     * Resolves a display name for a content URI.
+     */
     private fun getFileName(
         context: Context,
         uri: Uri
@@ -354,6 +505,9 @@ class DocxionWebViewApi(
         return uri.lastPathSegment
     }
 
+    /**
+     * Evaluates JavaScript on the WebView thread.
+     */
     private fun evaluate(
         script: String,
         callback: ((String?) -> Unit)? = null
@@ -368,7 +522,12 @@ class DocxionWebViewApi(
         }
     }
 
-    private fun parseString(value: String?): String? {
+    /**
+     * Parses a JavaScript string result returned by [WebView.evaluateJavascript].
+     */
+    private fun parseString(
+        value: String?
+    ): String? {
         if (value == null || value == "null") {
             return null
         }

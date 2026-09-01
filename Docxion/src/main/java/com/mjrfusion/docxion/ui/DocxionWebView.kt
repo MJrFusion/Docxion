@@ -13,25 +13,40 @@ import com.mjrfusion.docxion.client.DocxionWebViewClient
 import timber.log.Timber
 import java.io.File
 
+/**
+ * WebView container for the Docxion JavaScript viewer.
+ *
+ * Configures the WebView, exposes the Android callback bridge to
+ * JavaScript, and provides access to bundled Docxion assets and
+ * registered local document files.
+ *
+ * The public Kotlin viewer operations are provided separately by
+ * [com.mjrfusion.docxion.bridge.DocxionWebViewApi].
+ */
 @SuppressLint("SetJavaScriptEnabled")
-class DocxionWebView(context: Context) : WebView(context) {
+class DocxionWebView(
+    context: Context
+) : WebView(context) {
 
     private var bridge: DocxionJsBridge? = null
 
-    private val filePathHandler = DocxionFilePathHandler()
+    private val filePathHandler =
+        DocxionFilePathHandler()
 
-    private val assetLoader = WebViewAssetLoader.Builder()
-        .addPathHandler(
-            "/assets/",
-            WebViewAssetLoader.AssetsPathHandler(context)
-        )
-        .addPathHandler(
-            "/docxion-file/",
-            filePathHandler
-        )
-        .build()
+    private val assetLoader =
+        WebViewAssetLoader.Builder()
+            .addPathHandler(
+                "/assets/",
+                WebViewAssetLoader.AssetsPathHandler(context)
+            )
+            .addPathHandler(
+                "/docxion-file/",
+                filePathHandler
+            )
+            .build()
 
-    private val temporaryFiles = mutableSetOf<File>()
+    private val temporaryFiles =
+        mutableSetOf<File>()
 
     init {
         settings.apply {
@@ -45,51 +60,92 @@ class DocxionWebView(context: Context) : WebView(context) {
             displayZoomControls = false
         }
 
-        webViewClient = DocxionWebViewClient(assetLoader)
+        webViewClient =
+            DocxionWebViewClient(assetLoader)
     }
 
+    /**
+     * Logs WebView size changes for debugging.
+     */
     override fun onSizeChanged(
         w: Int,
         h: Int,
         oldw: Int,
         oldh: Int
     ) {
-        super.onSizeChanged(w, h, oldw, oldh)
+        super.onSizeChanged(
+            w,
+            h,
+            oldw,
+            oldh
+        )
 
-        Timber.d("WebView size: ${w}x${h}")
+        Timber.d(
+            "WebView size: ${w}x${h}"
+        )
     }
 
-    fun setCallbacks(callbacks: DocxionCallbacks) {
+    /**
+     * Installs the Android callback bridge exposed to JavaScript as
+     * `window.DocxionAndroid`.
+     *
+     * Replaces any previously installed bridge.
+     *
+     * @param callbacks callback implementation receiving viewer events
+     */
+    fun setCallbacks(
+        callbacks: DocxionCallbacks
+    ) {
         bridge?.let {
-            removeJavascriptInterface("DocxionAndroid")
+            removeJavascriptInterface(
+                "DocxionAndroid"
+            )
         }
 
-        bridge = DocxionJsBridgeImpl(callbacks)
+        bridge =
+            DocxionJsBridgeImpl(callbacks)
 
-        addJavascriptInterface(bridge!!, "DocxionAndroid")
+        addJavascriptInterface(
+            bridge!!,
+            "DocxionAndroid"
+        )
     }
 
-    fun registerFile(filePath: String): String {
-        return filePathHandler.register(filePath)
+    /**
+     * Registers a local document for access by the JavaScript viewer.
+     *
+     * @param filePath absolute filesystem path
+     * @return token used to construct the document resource URL
+     */
+    fun registerFile(
+        filePath: String
+    ): String {
+        return filePathHandler.register(
+            filePath
+        )
     }
 
-    fun addTemporaryFile(file: File) {
-        temporaryFiles += file
-    }
-
-    fun removeTemporaryFile(file: File) {
-        temporaryFiles.remove(file)
-        file.delete()
-    }
-
+    /**
+     * Loads the bundled Docxion HTML application.
+     */
     fun loadDocxion() {
-        loadUrl("https://appassets.androidplatform.net/assets/docxion/index.html")
+        loadUrl(
+            "https://appassets.androidplatform.net/assets/docxion/index.html"
+        )
     }
 
+    /**
+     * Stops and destroys the Docxion WebView.
+     *
+     * Removes the JavaScript bridge, clears registered files,
+     * deletes tracked temporary files, and destroys the WebView.
+     */
     fun destroyDocxion() {
         bridge = null
 
-        removeJavascriptInterface("DocxionAndroid")
+        removeJavascriptInterface(
+            "DocxionAndroid"
+        )
 
         stopLoading()
 
