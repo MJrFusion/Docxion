@@ -21,7 +21,7 @@ import type {
 } from './types/core';
 
 import {
-    ViewerBridge,
+    AndroidJsBridge,
 } from './bridge';
 
 import {
@@ -186,13 +186,12 @@ export async function mountViewer(
     }
 
     const bridge =
-        new ViewerBridge(
+        new AndroidJsBridge(
             options.androidBridge
         );
 
     const viewerOptions = {
-        renderers:
-            options.renderers ?? [
+        renderers: [
                 wordRenderer,
                 spreadsheetRenderer,
                 presentationRenderer,
@@ -802,7 +801,7 @@ export async function mountViewer(
 
 function handleViewerEvent(
     event: unknown,
-    bridge: ViewerBridge
+    bridge: AndroidJsBridge
 ): void {
     const value =
         asRecord(event);

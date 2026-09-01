@@ -20,7 +20,7 @@ export interface SearchResult {
 /**
  * Bridge exposed by the Android WebView.
  */
-export interface AndroidBridge {
+export interface AndroidCallbacks {
     log(
         message: string
     ): void;
@@ -138,8 +138,6 @@ export interface ViewerOptions {
 
     theme?: 'light' | 'dark';
 
-    renderers?: unknown[];
-
     search?: {
         maxMatches?: number;
         caseSensitive?: boolean;
@@ -150,5 +148,5 @@ export interface ViewerOptions {
         pptxWorkerUrl?: string;
     };
 
-    androidBridge?: AndroidBridge;
+    androidBridge?: AndroidCallbacks;
 }

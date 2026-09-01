@@ -1,5 +1,5 @@
 import type {
-    AndroidBridge
+    AndroidCallbacks
 } from './types/core';
 
 /**
@@ -9,9 +9,9 @@ import type {
  *
  * This class only forwards explicit notifications.
  */
-export class ViewerBridge {
+export class AndroidJsBridge {
     constructor(
-        private readonly android?: AndroidBridge
+        private readonly android?: AndroidCallbacks
     ) {}
 
     pageChanged(
