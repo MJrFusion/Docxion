@@ -1,140 +1,82 @@
 /**
  * Converts an unknown value into an object record.
  */
-export function asRecord(
-    value: unknown
-): Record<string, unknown> | undefined {
-    if (
-        typeof value !== 'object' ||
-        value === null
-    ) {
+export function asRecord(value: unknown): Record<string, unknown> | undefined {
+    if (typeof value !== 'object' || value === null) {
         return undefined;
     }
-
     return value as Record<string, unknown>;
 }
 
 /**
  * Reads a property from an unknown object.
  */
-export function getProperty(
-    value: unknown,
-    property: string
-): unknown {
+export function getProperty(value: unknown, property: string): unknown {
     return asRecord(value)?.[property];
 }
 
 /**
  * Reads a numeric value.
  */
-export function numberValue(
-    value: unknown
-): number | undefined {
-    return typeof value === 'number'
-        ? value
-        : undefined;
+export function numberValue(value: unknown): number | undefined {
+    return typeof value === 'number' ? value : undefined;
 }
 
 /**
- * Extracts the current one-based page number
- * from controller state.
+ * Extracts the current one-based page number from controller state.
  */
-export function extractPage(
-    state: unknown
-): number | undefined {
-    const value =
-        asRecord(state);
-
+export function extractPage(state: unknown): number | undefined {
+    const value = asRecord(state);
     if (!value) {
         return undefined;
     }
 
-    if (
-        typeof value.page === 'number'
-    ) {
+    if (typeof value.page === 'number') {
         return value.page;
     }
-
-    if (
-        typeof value.currentPage === 'number'
-    ) {
+    if (typeof value.currentPage === 'number') {
         return value.currentPage;
     }
-
-    if (
-        typeof value.pageNumber === 'number'
-    ) {
+    if (typeof value.pageNumber === 'number') {
         return value.pageNumber;
     }
-
-    if (
-        typeof value.pageIndex === 'number'
-    ) {
+    if (typeof value.pageIndex === 'number') {
         return value.pageIndex + 1;
     }
-
     return undefined;
 }
 
 /**
- * Extracts the total page count from
- * controller state.
+ * Extracts the total page count from controller state.
  */
-export function extractTotalPages(
-    state: unknown
-): number {
-    const value =
-        asRecord(state);
-
+export function extractTotalPages(state: unknown): number {
+    const value = asRecord(state);
     if (!value) {
         return 0;
     }
 
-    const total =
-        value.totalPages ??
-        value.pageCount ??
-        value.total ??
-        value.numPages;
-
-    return typeof total === 'number'
-        ? total
-        : 0;
+    const total = value.totalPages ?? value.pageCount ?? value.total ?? value.numPages;
+    return typeof total === 'number' ? total : 0;
 }
 
 /**
- * Extracts the numeric zoom scale from
- * the controller's zoom state.
+ * Extracts the numeric zoom scale from the controller's zoom state.
  */
-export function extractZoom(
-    value: unknown
-): number | undefined {
-    if (
-        typeof value === 'number'
-    ) {
+export function extractZoom(value: unknown): number | undefined {
+    if (typeof value === 'number') {
         return value;
     }
 
-    const zoom =
-        asRecord(value);
-
-    if (
-        typeof zoom?.scale === 'number'
-    ) {
+    const zoom = asRecord(value);
+    if (typeof zoom?.scale === 'number') {
         return zoom.scale;
     }
-
-    if (
-        typeof zoom?.zoom === 'number'
-    ) {
+    if (typeof zoom?.zoom === 'number') {
         return zoom.zoom;
     }
-
-    if (
-        typeof zoom?.value === 'number'
-    ) {
+    if (typeof zoom?.value === 'number') {
         return zoom.value;
     }
-
     return undefined;
 }
 
@@ -147,18 +89,12 @@ export function extractZoom(
  *
  * This function deliberately does not maintain any search state.
  */
-function extractSearchArray(
-    value: unknown
-): unknown[] {
-    if (
-        Array.isArray(value)
-    ) {
+function extractSearchArray(value: unknown): unknown[] {
+    if (Array.isArray(value)) {
         return value;
     }
 
-    const object =
-        asRecord(value);
-
+    const object = asRecord(value);
     if (!object) {
         return [];
     }
@@ -173,12 +109,8 @@ function extractSearchArray(
         object.documents,
     ];
 
-    for (
-        const candidate of candidates
-    ) {
-        if (
-            Array.isArray(candidate)
-        ) {
+    for (const candidate of candidates) {
+        if (Array.isArray(candidate)) {
             return candidate;
         }
     }
@@ -189,63 +121,32 @@ function extractSearchArray(
 /**
  * Converts a possible page value to a zero-based page index.
  */
-function extractSearchPageIndex(
-    value: Record<string, unknown>
-): number | undefined {
-    if (
-        typeof value.pageIndex === 'number'
-    ) {
+function extractSearchPageIndex(value: Record<string, unknown>): number | undefined {
+    if (typeof value.pageIndex === 'number') {
         return value.pageIndex;
     }
-
-    if (
-        typeof value.page === 'number'
-    ) {
-        return Math.max(
-            0,
-            value.page - 1
-        );
+    if (typeof value.page === 'number') {
+        return Math.max(0, value.page - 1);
     }
-
-    if (
-        typeof value.pageNumber === 'number'
-    ) {
-        return Math.max(
-            0,
-            value.pageNumber - 1
-        );
+    if (typeof value.pageNumber === 'number') {
+        return Math.max(0, value.pageNumber - 1);
     }
-
-    if (
-        typeof value.slideIndex === 'number'
-    ) {
+    if (typeof value.slideIndex === 'number') {
         return value.slideIndex;
     }
-
-    if (
-        typeof value.slide === 'number'
-    ) {
-        return Math.max(
-            0,
-            value.slide - 1
-        );
+    if (typeof value.slide === 'number') {
+        return Math.max(0, value.slide - 1);
     }
-
-    if (
-        typeof value.sheetIndex === 'number'
-    ) {
+    if (typeof value.sheetIndex === 'number') {
         return value.sheetIndex;
     }
-
     return undefined;
 }
 
 /**
  * Extracts matched text from the renderer result.
  */
-function extractSearchText(
-    value: Record<string, unknown>
-): string | undefined {
+function extractSearchText(value: Record<string, unknown>): string | undefined {
     const candidates = [
         value.text,
         value.match,
@@ -255,12 +156,8 @@ function extractSearchText(
         value.label,
     ];
 
-    for (
-        const candidate of candidates
-    ) {
-        if (
-            typeof candidate === 'string'
-        ) {
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string') {
             return candidate;
         }
     }
@@ -274,66 +171,36 @@ function extractSearchText(
  * Different renderers may expose the rectangle directly or inside
  * bounds / boundingBox.
  */
-function extractSearchRect(
-    value: Record<string, unknown>
-): SearchResult['rect'] | undefined {
+function extractSearchRect(value: Record<string, unknown>): SearchResult['rect'] | undefined {
     const candidates = [
         value.rect,
         value.bounds,
         value.boundingBox,
     ];
 
-    for (
-        const candidate of candidates
-    ) {
-        const rect =
-            asRecord(candidate);
-
-        if (
-            !rect
-        ) {
+    for (const candidate of candidates) {
+        const rect = asRecord(candidate);
+        if (!rect) {
             continue;
         }
 
-        if (
-            typeof rect.left === 'number' &&
-            typeof rect.top === 'number' &&
-            typeof rect.right === 'number' &&
-            typeof rect.bottom === 'number'
-        ) {
+        if (typeof rect.left === 'number' && typeof rect.top === 'number' &&
+            typeof rect.right === 'number' && typeof rect.bottom === 'number') {
             return {
-                left:
-                    rect.left,
-
-                top:
-                    rect.top,
-
-                right:
-                    rect.right,
-
-                bottom:
-                    rect.bottom,
+                left: rect.left,
+                top: rect.top,
+                right: rect.right,
+                bottom: rect.bottom,
             };
         }
 
-        if (
-            typeof rect.x === 'number' &&
-            typeof rect.y === 'number' &&
-            typeof rect.width === 'number' &&
-            typeof rect.height === 'number'
-        ) {
+        if (typeof rect.x === 'number' && typeof rect.y === 'number' &&
+            typeof rect.width === 'number' && typeof rect.height === 'number') {
             return {
-                left:
-                    rect.x,
-
-                top:
-                    rect.y,
-
-                right:
-                    rect.x + rect.width,
-
-                bottom:
-                    rect.y + rect.height,
+                left: rect.x,
+                top: rect.y,
+                right: rect.x + rect.width,
+                bottom: rect.y + rect.height,
             };
         }
     }
@@ -356,46 +223,21 @@ function extractSearchRect(
  * usable bounds are ignored because they cannot be represented by
  * the public SearchResult contract.
  */
-export function normalizeSearchResults(
-    value: unknown
-): SearchResult[] {
-    const values =
-        extractSearchArray(
-            value
-        );
+export function normalizeSearchResults(value: unknown): SearchResult[] {
+    const values = extractSearchArray(value);
+    const results: SearchResult[] = [];
 
-    const results:
-        SearchResult[] = [];
-
-    for (
-        const item of values
-    ) {
-        const object =
-            asRecord(item);
-
+    for (const item of values) {
+        const object = asRecord(item);
         if (!object) {
             continue;
         }
 
-        const pageIndex =
-            extractSearchPageIndex(
-                object
-            );
+        const pageIndex = extractSearchPageIndex(object);
+        const text = extractSearchText(object);
+        const rect = extractSearchRect(object);
 
-        const text =
-            extractSearchText(
-                object
-            );
-
-        const rect =
-            extractSearchRect(
-                object
-            );
-
-        if (
-            pageIndex === undefined ||
-            text === undefined
-        ) {
+        if (pageIndex === undefined || text === undefined) {
             continue;
         }
 
@@ -411,9 +253,7 @@ export function normalizeSearchResults(
 
         results.push({
             pageIndex,
-
             text,
-
             rect,
         });
     }
@@ -422,34 +262,23 @@ export function normalizeSearchResults(
 }
 
 /**
- * Converts an unknown thrown value into
- * a readable error message.
+ * Converts an unknown thrown value into a readable error message.
  */
-export function getErrorMessage(
-    error: unknown
-): string {
-    if (
-        error instanceof Error
-    ) {
+export function getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
         return error.message;
     }
-
-    if (
-        typeof error === 'string'
-    ) {
+    if (typeof error === 'string') {
         return error;
     }
-
     return String(error);
 }
 
 export interface SearchResult {
     /** Zero-based page index containing the match. */
     pageIndex: number;
-
     /** Matched text. */
     text: string;
-
     /** Bounds of the matched text. */
     rect: {
         left: number;

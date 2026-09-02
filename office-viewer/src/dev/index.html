@@ -1,14 +1,10 @@
 <!DOCTYPE html>
-
 <html lang="en">
 
 <head>
     <meta charset="UTF-8" />
-
-    <meta name="viewport" conte nt="width=device-width, initial-scale=1.0" />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vaultar File Viewer - Dev</title>
-
     <style>
         * {
             box-sizing: border-box;
@@ -20,13 +16,7 @@
             height: 100%;
             margin: 0;
             overflow: hidden;
-
-            font-family:
-                -apple-system,
-                BlinkMacSystemFont,
-                "Segoe UI",
-                Roboto,
-                sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
 
         body {
@@ -35,42 +25,31 @@
 
         #dev-header {
             position: fixed;
-
             top: 0;
             right: 0;
             left: 0;
-
             z-index: 1000;
-
             display: flex;
             align-items: center;
             gap: 8px;
-
             min-height: 48px;
             padding: 8px 12px;
-
             background: #fff;
             border-bottom: 1px solid #ddd;
-
             overflow-x: auto;
             overflow-y: hidden;
-
             white-space: nowrap;
         }
 
         #dev-header button {
             height: 30px;
             padding: 0 10px;
-
             border: 1px solid #ccc;
             border-radius: 4px;
-
             background: #fff;
             color: #222;
-
             font-family: inherit;
             font-size: 13px;
-
             cursor: pointer;
             user-select: none;
         }
@@ -95,11 +74,9 @@
         #file-name {
             min-width: 100px;
             max-width: 260px;
-
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-
             color: #666;
             font-size: 13px;
         }
@@ -108,10 +85,8 @@
             width: 180px;
             height: 30px;
             padding: 0 8px;
-
             border: 1px solid #ccc;
             border-radius: 4px;
-
             font-family: inherit;
             font-size: 13px;
         }
@@ -124,147 +99,68 @@
         .separator {
             width: 1px;
             height: 24px;
-
             flex: 0 0 auto;
-
             background: #ddd;
         }
 
         #status {
             position: fixed;
-
             right: 12px;
             bottom: 12px;
-
             z-index: 1001;
-
             max-width: 420px;
             padding: 8px 12px;
-
             border: 1px solid #ddd;
             border-radius: 4px;
-
             background: rgba(255, 255, 255, 0.95);
             color: #555;
-
             font-size: 12px;
-
             pointer-events: none;
         }
 
         #viewer {
             position: absolute;
-
             top: 48px;
             right: 0;
             bottom: 0;
             left: 0;
-
             width: 100%;
             height: calc(100% - 48px);
         }
     </style>
-
 </head>
 
 <body>
-
     <header id="dev-header">
-
-        <button id="open" type="button">
-            Open
-        </button>
-
+        <button id="open" type="button">Open</button>
         <input id="file-picker" type="file" accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx" />
-
-        <span id="file-name">
-            No document selected
-        </span>
-
-        <button id="close" type="button" disabled>
-            Close
-        </button>
-
+        <span id="file-name">No document selected</span>
+        <button id="close" type="button" disabled>Close</button>
         <span class="separator"></span>
-
-        <button id="previous" type="button" disabled title="Previous page">
-            ←
-        </button>
-
-        <button id="next" type="button" disabled title="Next page">
-            →
-        </button>
-
+        <button id="previous" type="button" disabled title="Previous page">←</button>
+        <button id="next" type="button" disabled title="Next page">→</button>
         <span class="separator"></span>
-
-        <button id="zoom-out" type="button" disabled title="Zoom out">
-            −
-        </button>
-
-        <button id="zoom-in" type="button" disabled title="Zoom in">
-            +
-        </button>
-
-        <button id="fit-width" type="button" disabled>
-            Fit Width
-        </button>
-
-        <button id="fit-page" type="button" disabled>
-            Fit Page
-        </button>
-
+        <button id="zoom-out" type="button" disabled title="Zoom out">−</button>
+        <button id="zoom-in" type="button" disabled title="Zoom in">+</button>
+        <button id="fit-width" type="button" disabled>Fit Width</button>
+        <button id="fit-page" type="button" disabled>Fit Page</button>
         <span class="separator"></span>
-
         <input id="search-input" type="search" placeholder="Search document" autocomplete="off" />
-
-        <button id="search" type="button" disabled>
-            Search
-        </button>
-
-        <button id="previous-match" type="button" disabled title="Previous search match">
-            Previous Match
-        </button>
-
-        <button id="next-match" type="button" disabled title="Next search match">
-            Next Match
-        </button>
-
-        <button id="clear-search" type="button" disabled>
-            Clear Search
-        </button>
-
+        <button id="search" type="button" disabled>Search</button>
+        <button id="previous-match" type="button" disabled title="Previous search match">Previous Match</button>
+        <button id="next-match" type="button" disabled title="Next search match">Next Match</button>
+        <button id="clear-search" type="button" disabled>Clear Search</button>
         <span class="separator"></span>
-
-        <button id="light" type="button" disabled>
-            Light
-        </button>
-
-        <button id="dark" type="button" disabled>
-            Dark
-        </button>
-
+        <button id="light" type="button" disabled>Light</button>
+        <button id="dark" type="button" disabled>Dark</button>
         <span class="separator"></span>
-
-        <button id="print" type="button" disabled>
-            Print
-        </button>
-
+        <button id="print" type="button" disabled>Print</button>
         <span class="separator"></span>
-
-        <button id="destroy" type="button" disabled>
-            Destroy
-        </button>
-
+        <button id="destroy" type="button" disabled>Destroy</button>
     </header>
-
     <main id="viewer"></main>
-
-    <output id="status">
-        Viewer not initialized.
-    </output>
-
+    <output id="status">Viewer not initialized.</output>
     <script type="module" src="./main.tsx"></script>
-
 </body>
 
 </html>
