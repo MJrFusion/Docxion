@@ -1,0 +1,89 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = 'io.github.mjrfusion'
+version = '1.0.0-alpha.1'
+
+android {
+    namespace 'com.mjrfusion.docxion'
+    compileSdk 37
+
+    defaultConfig {
+        minSdk 24
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.19.0'
+    implementation 'androidx.activity:activity-compose:1.13.0'
+
+    implementation 'androidx.compose.ui:ui:1.12.0'
+    implementation 'androidx.compose.runtime:runtime:1.12.0'
+
+    implementation 'androidx.webkit:webkit:1.17.0'
+
+    implementation 'com.jakewharton.timber:timber:5.0.1'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.release
+
+                pom {
+                    name = 'Docxion'
+                    description = 'Android document viewer library'
+                    url = 'https://github.com/mjrfusion/docxion'
+
+                    licenses {
+                        license {
+                            name = 'Apache License 2.0'
+                            url = 'https://www.apache.org/licenses/LICENSE-2.0'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id = 'mjrfusion'
+                            name = 'MJrFusion'
+                        }
+                    }
+
+                    scm {
+                        connection = 'scm:git:git://github.com/mjrfusion/docxion.git'
+                        developerConnection = 'scm:git:ssh://github.com/mjrfusion/docxion.git'
+                        url = 'https://github.com/mjrfusion/docxion'
+                    }
+                }
+            }
+        }
+    }
+}
+
+signing {
+    afterEvaluate {
+        sign publishing.publications.release
+    }
+}

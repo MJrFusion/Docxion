@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "@file-viewer/vite-plugin",
+  "rendererIds": [
+    "office-word-openxml",
+    "office-word-binary",
+    "open-document",
+    "spreadsheet-openxml",
+    "spreadsheet-dbf",
+    "office-presentation-binary",
+    "office-presentation"
+  ],
+  "copiedAt": "2026-09-03T11:13:35.921Z",
+  "assets": [
+    {
+      "rendererId": "office-presentation",
+      "id": "pptx-worker",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/pptx/pptx.worker.js",
+      "copied": true
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-module",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/index.mjs",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-worker",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/worker.mjs",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-frame-cache",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/frame-cache.mjs",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-wasm",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/ppt-native.wasm",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-cjk-font",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/ppt-font-cjk.otf",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-manifest",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/manifest.json",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-package",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/package.json",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-license",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/LICENSE",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-presentation-binary",
+      "id": "ppt-notice",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/ppt/NOTICE",
+      "copied": true,
+      "sourcePackage": "@file-viewer/ppt",
+      "sourceVersion": "0.3.3"
+    },
+    {
+      "rendererId": "office-word-openxml",
+      "id": "docx-worker",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/docx/docx.worker.js",
+      "copied": true
+    },
+    {
+      "rendererId": "office-word-openxml",
+      "id": "docx-worker-jszip",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/docx/jszip.min.js",
+      "copied": true
+    },
+    {
+      "rendererId": "spreadsheet-openxml",
+      "id": "spreadsheet-worker",
+      "to": "/home/gabrielmjr/Programming/Repositories/library/Docxion/office-viewer/dist/vendor/xlsx/sheet.worker.js",
+      "copied": true,
+      "sourcePackage": "@file-viewer/renderer-spreadsheet",
+      "sourceVersion": "2.4.0"
+    }
+  ]
+}

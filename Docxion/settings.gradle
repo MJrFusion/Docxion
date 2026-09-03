@@ -9,7 +9,6 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
-        maven { url "https://jitpack.io" }
     }
 }
 plugins {
@@ -20,8 +19,9 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url "https://jitpack.io" }
     }
 }
 
-rootProject.name = 'Docxion'
+rootProject.name = "Docxion-lib"
+include ':Example'
+include ':Docxion'

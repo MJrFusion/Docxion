@@ -1,364 +1,145 @@
-# Docxion Android Library
+# Docxion Android Project
 
 > **Project Status: Early Development**
 >
-> Docxion is currently in the early stages of development. APIs, packaging, and project structure may change as the project evolves.
+> This project contains the Android hosting project for Docxion. It brings together the `Docxion` Android library and its `Example` application in a single Gradle project.
 
-Docxion is the Android/Jetpack Compose wrapper around the TypeScript/JavaScript viewer that powers the document UI. The Android side hosts the viewer in a `WebView` and exposes the Kotlin control surface through `DocxionWebViewApi`.
-
-The current bridge flow is:
-
-```text
-Kotlin -> WebView -> window.docxionApi -> TypeScript ViewerAPI
-```
-
-The JavaScript side reports events back to Android through:
-
-```text
-JavaScript -> window.DocxionAndroid -> Android callbacks
-```
+Docxion is an Android document viewer built around a WebView-hosted TypeScript/JavaScript viewer. The Android library provides the native integration, while the Example application demonstrates and exercises that integration.
 
 ---
 
 ## Table of Contents
 
-- [Docxion Android Library](#docxion-android-library)
-  - [Table of Contents](#table-of-contents)
-  - [Current Status](#current-status)
-  - [Installation](#installation)
-  - [Basic Setup](#basic-setup)
-  - [Opening Documents](#opening-documents)
-    - [Open a content `Uri`](#open-a-content-uri)
-    - [Open an absolute filesystem path](#open-an-absolute-filesystem-path)
-  - [Viewer Callbacks](#viewer-callbacks)
-  - [Basic API Usage](#basic-api-usage)
-  - [Build and Development](#build-and-development)
-    - [1. Build the TypeScript viewer](#1-build-the-typescript-viewer)
-    - [2. Copy the distribution into Android assets](#2-copy-the-distribution-into-android-assets)
-    - [3. Build the Android library](#3-build-the-android-library)
-    - [Automated Build](#automated-build)
-  - [Relationship to the TypeScript Viewer](#relationship-to-the-typescript-viewer)
-  - [Requirements and Limitations](#requirements-and-limitations)
-  - [Example](#example)
-  - [License](#license)
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+- [Responsibilities](#responsibilities)
+- [How the Android Project Fits Together](#how-the-android-project-fits-together)
+- [Build and Run](#build-and-run)
+- [Development Workflow](#development-workflow)
+- [Viewer Asset Workflow](#viewer-asset-workflow)
+- [Example Application](#example-application)
+- [Building the Library](#building-the-library)
+- [Architecture](#architecture)
+- [Requirements](#requirements)
+- [Related Documentation](#related-documentation)
+- [License](#license)
 
 ---
 
-## Current Status
+## Overview
 
-This library is functional enough for the example app in this repository, but it is still early-stage. Public APIs, packaging, and internal structure may change.
+This directory is the **Android Gradle project** for Docxion.
 
----
+It is not itself the Android library and it is not itself the Example application. Instead, it is the Android project that hosts both modules:
 
-## Installation
+```text
+Android Docxion Project
+        |
+        +-------------------+
+        |                   |
+        v                   v
+    Docxion              Example
+    Library              Application
+```
 
-This repository currently uses the Android library as a local Gradle module.
+The `Example` application depends on the sibling `Docxion` library module during development:
 
-From another Android project in the same Gradle settings file, add:
-
-```gradle
+```groovy
 implementation project(':Docxion')
 ```
 
-The module namespace is:
-
-```text
-com.mjrfusion.docxion
-```
+This allows the example to build directly against the current library source.
 
 ---
 
-## Basic Setup
+## Project Structure
 
-Use the `DocxionViewer` composable to host the viewer:
-
-```kotlin
-val callbacks = object : DocxionCallbacks {
-
-    override fun log(message: String) {}
-
-    override fun onPageChanged(page: Int, totalPages: Int) {}
-
-    override fun onZoomChanged(zoom: Double) {}
-
-    override fun onTextSelected(text: String?) {}
-
-    override fun onReady(timestamp: Long) {}
-
-    override fun onError(message: String, code: String?) {}
-
-}
-
-var api by remember { mutableStateOf<DocxionWebViewApi?>(null) }
-
-DocxionViewer(
-    modifier = Modifier.fillMaxSize(),
-    callbacks = callbacks,
-    onApiCreated = { createdApi ->
-        api = createdApi
-    }
-)
-```
-
-`onApiCreated` receives the `DocxionWebViewApi` instance as soon as the `WebView` is created.
-
-The viewer JavaScript is loaded separately inside the WebView. The API can therefore be created before the JavaScript viewer reports that it is ready.
-
-For operations that require the mounted viewer, use the `onReady` callback to know when the viewer is ready.
-
----
-
-## Opening Documents
-
-The Android API currently exposes the JavaScript viewer API through `DocxionWebViewApi`.
-
-### Open a content `Uri`
-
-`openFile(uri: Uri)` copies the content into the app cache before handing it to the viewer.
-
-```kotlin
-api?.openFile(selectedUri)
-```
-
-This is useful when a document comes from Android's document picker or another content provider.
-
-The temporary cached copy is managed by the library and removed when the viewer is destroyed.
-
-### Open an absolute filesystem path
-
-`openFile(file: String)` requires an absolute path to an existing file.
-
-```kotlin
-api?.openFile("/absolute/path/to/document.docx")
-```
-
-The Android WebView cannot directly expose an arbitrary local filesystem path to the JavaScript viewer. Docxion therefore registers the file with its WebView file handler and exposes it to the viewer through the local WebView asset URL.
-
----
-
-## Viewer Callbacks
-
-Provide a `DocxionCallbacks` implementation to receive events from the JavaScript viewer:
-
-- `log(message)`
-- `onPageChanged(page, totalPages)`
-- `onZoomChanged(zoom)`
-- `onTextSelected(text)`
-- `onReady(timestamp)`
-- `onError(message, code)`
-
-These callbacks are delivered through:
+The Android project has the following structure:
 
 ```text
-window.DocxionAndroid
-```
-
-inside the `WebView`.
-
-For example:
-
-```kotlin
-val callbacks = object : DocxionCallbacks {
-
-    override fun log(message: String) {
-        Log.d("Docxion", message)
-    }
-
-    override fun onPageChanged(page: Int, totalPages: Int) {
-        Log.d("Docxion", "Page: $page / $totalPages")
-    }
-
-    override fun onZoomChanged(zoom: Double) {
-        Log.d("Docxion", "Zoom: $zoom")
-    }
-
-    override fun onTextSelected(text: String?) {
-        Log.d("Docxion", "Selected text: $text")
-    }
-
-    override fun onReady(timestamp: Long) {
-        Log.d("Docxion", "Viewer ready: $timestamp")
-    }
-
-    override fun onError(message: String, code: String?) {
-        Log.d("Docxion", "Error: $message, code: $code")
-    }
-}
-```
-
----
-
-## Basic API Usage
-
-`DocxionWebViewApi` mirrors the current TypeScript `ViewerAPI` surface used by the viewer shell.
-
-The main operations available today are:
-
-- `openFile(uri: Uri)`
-- `openFile(file: String)`
-- `closeFile()`
-- `getCurrentFile(callback)`
-- `goToPage(page: Int)`
-- `getCurrentPage(callback)`
-- `getTotalPages(callback)`
-- `setZoom(zoom: Double)`
-- `getZoom(callback)`
-- `zoomIn(step: Double? = null)`
-- `zoomOut(step: Double? = null)`
-- `fitToWidth()`
-- `fitToPage()`
-- `search(query, callback)`
-- `clearSearch()`
-- `goToNextMatch()`
-- `goToPreviousMatch()`
-- `getSelectedText(callback)`
-- `clearSelection()`
-- `setTheme(theme)`
-- `getTheme(callback)`
-- `print()`
-- `destroy()`
-- `isReady(callback)`
-
-Example:
-
-```kotlin
-api?.goToPage(2)
-
-api?.zoomIn()
-
-api?.fitToWidth()
-
-api?.setTheme("dark")
-```
-
-Methods that return values from JavaScript use callbacks because the values are returned asynchronously from `WebView.evaluateJavascript()`.
-
-For example:
-
-```kotlin
-api?.getCurrentPage { page ->
-    Log.d("Docxion", "Current page: $page")
-}
-```
-
-Search results are returned as the JSON string produced by the JavaScript viewer layer. The TypeScript viewer remains the source of truth for the search result format.
-
----
-
-## Build and Development
-
-The Android library currently depends on a manually prepared build of the TypeScript viewer.
-
-The current development flow is:
-
-```text
-office-viewer
-     |
-     | npm run build
-     v
-dist/
-     |
-     | copy all built files
-     v
-Docxion/src/main/assets/docxion/
-     |
-     | Android shell files
-     | index.html
-     | index.css
-     v
-Build Docxion Android Library
-```
-
-### 1. Build the TypeScript viewer
-
-From the `office-viewer` directory, run:
-
-```bash
-npm install
-npm run build
-```
-
-This produces the viewer distribution under:
-
-```text
-office-viewer/dist/
-```
-
-### 2. Copy the distribution into Android assets
-
-Copy all required files from:
-
-```text
-office-viewer/dist/
-```
-
-into:
-
-```text
-Docxion/src/main/assets/docxion/
-```
-
-The Android assets directory should contain the built viewer files alongside the Android WebView shell files.
-
-The shell currently consists of:
-
-```text
-Docxion/src/main/assets/docxion/
+Docxion/
 │
-├── vendor/
-├── index.html
-├── index.css
-├── index.js
-├── index.umd.js
-└── ...
+├── settings.gradle
+├── build.gradle
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+│
+├── Docxion/                  Android library module
+│   ├── build.gradle
+│   └── src/
+│
+└── Example/                  Example Android application
+    ├── build.gradle
+    ├── src/
+    └── README.md
 ```
 
-> [!NOTE]
-> Unless you want to recreate the Android Bridge to the shell files, you should be using the existing `index.html`, `index.css` and `index.js` that already exists in *Docxion/src/main/assets/docxion*.
->
-> All other files/dir (`vendor/` and `index.udm.js`) are the one you copied from dist/
+There may also be the usual Gradle and Android Studio generated files and directories.
 
-The exact generated files depend on the current `office-viewer` build.
+The important distinction is:
 
-The Android shell files are responsible for loading the bundled viewer and connecting it to the Android JavaScript bridge.
+- **This project/root** — hosts the Android modules.
+- **`Docxion/`** — the reusable Android library.
+- **`Example/`** — an Android application demonstrating the library.
 
-### 3. Build the Android library
-
-After the viewer distribution has been copied into the Android assets directory, build the Android library using Gradle.
-
-For example:
-
-```bash
-./gradlew :Docxion:build
-```
-
-The resulting Android library can then be used by the example application or another Android project.
-
-### Automated Build
-
-The viewer-to-Android asset copy is currently manual.
-
-Automated scripts for preparing the Android assets and building the complete project will be provided in the future.
+The TypeScript viewer is developed separately in the `office-viewer` project and its generated distribution is consumed by the Android library.
 
 ---
 
-## Relationship to the TypeScript Viewer
+## Responsibilities
 
-The Android wrapper does not reimplement document rendering.
+### Android Project
 
-It hosts the TypeScript viewer in a `WebView`, loads the bundled viewer assets, and forwards commands to:
+The root project is responsible for:
 
-```text
-window.docxionApi
-```
+- Defining the Gradle project.
+- Including the `Docxion` and `Example` modules.
+- Managing shared Gradle plugin versions.
+- Providing the development/build environment for the Android side of Docxion.
 
-Android callbacks travel in the opposite direction through:
+It does not contain the viewer implementation itself.
 
-```text
-window.DocxionAndroid
-```
+### `Docxion` Library
 
-The overall relationship is:
+The Android library provides:
+
+- `DocxionViewer`
+- `DocxionWebView`
+- `DocxionWebViewApi`
+- Android ↔ JavaScript communication
+- WebView configuration
+- Android file handling
+- Viewer callbacks
+- Jetpack Compose integration
+- Bundled viewer assets
+
+See [`Docxion/README.md`](Docxion/README.md) for the library-specific documentation.
+
+### `Example` Application
+
+The Example application provides a practical Android integration of the library.
+
+It demonstrates:
+
+- Embedding `DocxionViewer` in Jetpack Compose.
+- Opening documents through Android's system document picker.
+- Controlling the viewer through `DocxionWebViewApi`.
+- Receiving `DocxionCallbacks`.
+- Page navigation.
+- Zoom and fit controls.
+- Search navigation.
+- Text selection.
+- Theme switching.
+- Printing.
+
+See [`Example/README.md`](Example/README.md) for the application-specific documentation.
+
+---
+
+## How the Android Project Fits Together
+
+The complete development relationship is:
 
 ```text
 office-viewer
@@ -367,42 +148,333 @@ office-viewer
       v
 TypeScript/JavaScript distribution
       |
-      | copied into Android assets
+      | copy generated files
       v
-Docxion WebView
+Docxion/src/main/assets/docxion/
+      |
+      v
+Docxion Android Library
       |
       +----------------------+
       |                      |
       v                      v
-window.docxionApi     window.DocxionAndroid
-      |                      |
-      v                      v
-Kotlin API             Android callbacks
+Example Application       Other Android Apps
 ```
 
-This keeps document rendering and viewer behavior in the TypeScript/JavaScript layer while the Android library provides the native WebView and Jetpack Compose integration.
+At runtime, the Android side hosts the TypeScript viewer in a WebView:
+
+```text
+Example Application
+        |
+        v
+DocxionViewer
+        |
+        v
+DocxionWebView
+        |
+        v
+Android WebView
+        |
+        v
+Android shell
+        |
+        v
+TypeScript Viewer
+```
+
+The Android API and callback bridge connect the two sides:
+
+```text
+Android
+   |
+   v
+DocxionWebViewApi
+   |
+   v
+window.docxionApi
+   |
+   v
+TypeScript Viewer
+```
+
+and:
+
+```text
+TypeScript Viewer
+   |
+   v
+window.DocxionAndroid
+   |
+   v
+DocxionJsBridge
+   |
+   v
+DocxionCallbacks
+   |
+   v
+Android
+```
+
+The Example application communicates with the viewer through the public Kotlin API and callback interfaces exposed by the `Docxion` library. It does not communicate with the TypeScript viewer directly.
 
 ---
 
-## Requirements and Limitations
+## Build and Run
 
-- The API validates that absolute file paths exist before opening them.
-- `openFile(Uri)` creates a temporary cached copy for the viewer.
-- The wrapper expects to run inside `DocxionWebView`; the API is created from that WebView instance.
-- The TypeScript viewer must be built and copied into the Android assets before building the Android library.
-- The current viewer-to-Android asset workflow is manual.
-- Automated build and asset-copy scripts are planned but are not currently provided.
-- This project is still early-stage and behavior may change.
+Open the **Android project root** in Android Studio:
+
+```text
+Docxion/
+```
+
+This is the Gradle project containing both the library and the Example application.
+
+### Build the Example APK
+
+From the project root:
+
+```bash
+./gradlew :Example:assembleDebug
+```
+
+### Install the Example
+
+With a connected Android device or emulator:
+
+```bash
+./gradlew :Example:installDebug
+```
+
+You can also select the `Example` run configuration in Android Studio and run it directly.
+
+### Build the Library
+
+To build the Android library:
+
+```bash
+./gradlew :Docxion:build
+```
+
+The `Docxion` module is a library and is not run as an application.
 
 ---
 
-## Example
+## Development Workflow
 
-See the practical Android integration in:
+The normal Android development workflow is:
 
-[../Example/README.md](../Example/README.md)
+```text
+1. Develop office-viewer
+          |
+          v
+2. Build the TypeScript viewer
+          |
+          v
+3. Copy the generated distribution
+          |
+          v
+4. Prepare Docxion Android assets
+          |
+          v
+5. Build Docxion
+          |
+          v
+6. Run Example
+          |
+          v
+7. Test the Android integration
+```
 
-The example application demonstrates how to embed `DocxionViewer`, receive the `DocxionWebViewApi`, provide callbacks, and interact with the viewer from Jetpack Compose.
+The Example application is therefore both a usage example and a practical integration environment for the Android library.
+
+---
+
+## Viewer Asset Workflow
+
+The Android library currently uses a manually prepared build of the TypeScript viewer.
+
+From the `office-viewer` project:
+
+```bash
+npm install
+npm run build
+```
+
+This produces:
+
+```text
+office-viewer/dist/
+```
+
+Copy the generated distribution into:
+
+```text
+Docxion/src/main/assets/docxion/
+```
+
+The Android library also contains its WebView shell files:
+
+```text
+Docxion/src/main/assets/docxion/
+├── index.html
+├── index.css
+└── index.js
+```
+
+The shell is **not part of the generated TypeScript `dist/` by default**. The generated distribution is copied into the Android assets alongside the existing shell.
+
+Conceptually:
+
+```text
+Android assets
+    =
+Android WebView shell
+    +
+TypeScript viewer distribution
+```
+
+You do not need to recreate the shell when preparing a new viewer build. Build the TypeScript viewer, copy its generated distribution into the library assets, and build the Android project.
+
+The current asset preparation step is manual. An automation script for this workflow is planned for a future development stage.
+
+---
+
+## Example Application
+
+The Example module is a consumer of the local `Docxion` library:
+
+```groovy
+dependencies {
+    implementation project(':Docxion')
+}
+```
+
+A simplified integration looks like:
+
+```kotlin
+DocxionViewer(
+    callbacks = callbacks,
+    onApiCreated = { api = it }
+)
+```
+
+The application can then control the viewer through `DocxionWebViewApi`:
+
+```kotlin
+api?.zoomIn()
+api?.fitToWidth()
+api?.goToNextMatch()
+api?.setTheme("dark")
+```
+
+Viewer events are received through `DocxionCallbacks`, including text-selection geometry:
+
+```kotlin
+override fun onTextSelected(selection: TextSelection?) {
+    Log.d("Docxion", "Text selection: $selection")
+}
+```
+
+The complete Example documentation is available in [`Example/README.md`](Example/README.md).
+
+---
+
+## Building the Library
+
+The library can be built independently from the root project:
+
+```bash
+./gradlew :Docxion:build
+```
+
+However, when changing the TypeScript viewer, the viewer distribution must first be rebuilt and copied into the Android library assets.
+
+The complete relationship is:
+
+```text
+office-viewer
+      |
+      | build
+      v
+dist/
+      |
+      | copy
+      v
+Docxion/src/main/assets/docxion/
+      |
+      | Android build
+      v
+Docxion library
+```
+
+This separation keeps the TypeScript viewer and Android hosting layer independently developed while allowing the Android project to package the final viewer assets.
+
+---
+
+## Architecture
+
+Docxion is divided into three principal layers:
+
+```text
++---------------------------------------------+
+|              Example Application            |
+|          Jetpack Compose / Android           |
++-------------------------+-------------------+
+                          |
+                          v
++---------------------------------------------+
+|              Docxion Android Library         |
+|                                             |
+|  DocxionViewer                              |
+|  DocxionWebView                             |
+|  DocxionWebViewApi                          |
+|  JavaScript bridge                          |
+|  Android file handling                      |
++-------------------------+-------------------+
+                          |
+                          v
++---------------------------------------------+
+|             WebView / Android Shell          |
+|                                             |
+|  index.html / index.css / index.js          |
++-------------------------+-------------------+
+                          |
+                          v
++---------------------------------------------+
+|            TypeScript / JavaScript Viewer    |
+|                 office-viewer                |
++-------------------------+-------------------+
+                          |
+                          v
++---------------------------------------------+
+|            Underlying File Viewer             |
+|      Document rendering / format support     |
++---------------------------------------------+
+```
+
+The Android project therefore provides the native hosting environment rather than reimplementing document rendering.
+
+---
+
+## Requirements
+
+For Android development, you need:
+
+- Android Studio.
+- Android SDK configured for the project.
+- A connected Android device or available emulator for running the Example.
+- Node.js and npm when rebuilding the TypeScript viewer.
+- The required viewer distribution prepared in the `Docxion` Android library assets.
+
+The exact Android SDK, Gradle, Android Gradle Plugin, Kotlin, and Node.js versions are determined by the project configuration.
+
+---
+
+## Related Documentation
+
+- [`Docxion/README.md`](Docxion/README.md) — Android library documentation.
+- [`Example/README.md`](Example/README.md) — Example application documentation.
+- `office-viewer` — TypeScript/JavaScript viewer project.
 
 ---
 
@@ -419,7 +491,6 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
 See the License for the specific language governing permissions and
