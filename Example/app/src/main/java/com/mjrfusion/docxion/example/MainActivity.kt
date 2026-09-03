@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
 import com.mjrfusion.docxion.callback.DocxionCallbacks
 import com.mjrfusion.docxion.example.ui.theme.ExampleTheme
+import com.mjrfusion.docxion.model.TextSelection
 import com.mjrfusion.docxion.ui.compose.DocxionViewer
 
 class MainActivity : ComponentActivity() {
@@ -71,10 +72,10 @@ private fun DocxionExampleScreen() {
                 )
             }
 
-            override fun onTextSelected(text: String?) {
+            override fun onTextSelected(selection: TextSelection?) {
                 Log.d(
                     "Docxion",
-                    "Text selected: $text"
+                    "Text selection: $selection"
                 )
             }
 
@@ -86,7 +87,7 @@ private fun DocxionExampleScreen() {
             }
 
             override fun onError(message: String, code: String?) {
-                Log.d(
+                Log.e(
                     "Docxion",
                     "Error: $message, code=$code"
                 )

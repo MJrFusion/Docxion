@@ -3,7 +3,6 @@ package com.mjrfusion.docxion.ui
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
-import android.view.ActionMode
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -238,14 +237,6 @@ class DocxionWebView(context: Context) : WebView(context) {
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         Timber.d("WebView size: ${w}x${h}")
-    }
-
-    override fun startActionMode(callback: ActionMode.Callback, type: Int): ActionMode? {
-        return null
-    }
-
-    override fun startActionMode(callback: ActionMode.Callback): ActionMode? {
-        return null
     }
 
     /**
