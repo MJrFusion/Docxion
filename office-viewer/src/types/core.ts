@@ -16,13 +16,38 @@ export interface SearchResult {
 }
 
 /**
+ * One visual fragment of a document text selection.
+ */
+export interface SelectionRect {
+    /** Left coordinate of the selected fragment. */
+    left: number;
+    /** Top coordinate of the selected fragment. */
+    top: number;
+    /** Right coordinate of the selected fragment. */
+    right: number;
+    /** Bottom coordinate of the selected fragment. */
+    bottom: number;
+}
+
+/**
+ * Public representation of a document text selection.
+ *
+ * A selection may span multiple lines and therefore contain
+ * multiple visual rectangles.
+ */
+export interface TextSelection {
+    /** Visual rectangles occupied by the selection. */
+    rects: SelectionRect[];
+}
+
+/**
  * Bridge exposed by the Android WebView.
  */
 export interface AndroidCallbacks {
     log(message: string): void;
     onPageChanged(page: number, totalPages: number): void;
     onZoomChanged(zoom: number): void;
-    onTextSelected(text: string | null): void;
+    onTextSelected(selection: TextSelection | null): void;
     onReady(timestamp: number): void;
     onError(message: string, code?: string): void;
 }

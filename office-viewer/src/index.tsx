@@ -3,8 +3,16 @@ import { wordRenderer } from '@file-viewer/renderer-word';
 import { spreadsheetRenderer } from '@file-viewer/renderer-spreadsheet';
 import { presentationRenderer } from '@file-viewer/renderer-presentation';
 
-import type { SearchResult, ViewerAPI, ViewerOptions } from './types/core';
-import { AndroidJsBridge } from './bridge';
+import type {
+    SearchResult,
+    ViewerAPI,
+    ViewerOptions,
+} from './types/core';
+
+import {
+    getDomSelection,
+} from './utils/selection';
+
 import {
     asRecord,
     extractPage,
@@ -13,7 +21,9 @@ import {
     getErrorMessage,
     getProperty,
     normalizeSearchResults,
-} from './viewer-utils';
+} from './utils/viewer';
+
+import { AndroidJsBridge } from './types/bridge';
 
 type WebViewerController = {
     load?: (options?: unknown) => Promise<void>;
@@ -81,9 +91,7 @@ async function navigateSearch(
         return;
     }
 
-    throw new Error(
-        'Search-result navigation is not supported by the current viewer renderer.'
-    );
+    throw new Error('Search-result navigation is not supported by the current viewer renderer.');
 }
 
 /**
@@ -132,6 +140,7 @@ export async function mountViewer(
                 onEvent: viewerOptions.onEvent,
             } as never
         );
+
         controller = asController(mounted);
     } catch (error) {
         bridge.error(getErrorMessage(error), 'VIEWER_MOUNT_ERROR');
@@ -142,12 +151,31 @@ export async function mountViewer(
         throw new Error('The file viewer controller was not created.');
     }
 
+    /*
+     * Selection is intentionally handled through the browser's DOM
+     * Selection API rather than the file viewer event API.
+     *
+     * The listener is installed only after the viewer has been
+     * successfully mounted.
+     */
+    const handleSelectionChange = (): void => {
+        const selection = getDomSelection(
+            (message) => bridge.log(message)
+        );
+
+        bridge.log(`[Docxion] DOM selection changed: ${JSON.stringify(selection)}`);
+        bridge.log(`[Docxion] activeElement: ${document.activeElement?.outerHTML?.slice(0, 500)}`);
+
+        bridge.textSelected(selection);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+
     const unsubscribe = controller.subscribe?.((state: unknown) => {
         const page = extractPage(state);
         if (page !== undefined) {
             bridge.pageChanged(page, extractTotalPages(state));
         }
-
         const zoom = extractZoom(getProperty(state, 'zoom'));
         if (zoom !== undefined) {
             bridge.zoomChanged(zoom);
@@ -162,22 +190,16 @@ export async function mountViewer(
             if (destroyed) {
                 throw new Error('Viewer has been destroyed.');
             }
-
             currentFile = file;
-
             if (typeof controller.update === 'function') {
                 await controller.update({ file });
                 return;
             }
-
             if (typeof controller.load === 'function') {
                 await controller.load({ file });
                 return;
             }
-
-            throw new Error(
-                'Opening another file is not supported by the viewer controller.'
-            );
+            throw new Error('Opening another file is not supported by the viewer controller.');
         },
 
         closeFile(): void {
@@ -195,10 +217,8 @@ export async function mountViewer(
             if (!Number.isFinite(page) || page < 1) {
                 throw new RangeError('Page must be a positive number.');
             }
-
             const currentState = controller.getViewState?.();
             const state = asRecord(currentState);
-
             if (typeof controller.applyViewState === 'function' && state) {
                 await controller.applyViewState(
                     { ...state, page },
@@ -206,10 +226,7 @@ export async function mountViewer(
                 );
                 return;
             }
-
-            throw new Error(
-                'Page navigation is not supported by the current viewer controller.'
-            );
+            throw new Error('Page navigation is not supported by the viewer controller.');
         },
 
         getCurrentPage(): number {
@@ -224,12 +241,10 @@ export async function mountViewer(
             if (!Number.isFinite(zoom) || zoom <= 0) {
                 throw new RangeError('Zoom must be a positive number.');
             }
-
             const currentZoom = api.getZoom();
             if (zoom === currentZoom) {
                 return;
             }
-
             if (zoom < currentZoom) {
                 while (api.getZoom() > zoom) {
                     const before = api.getZoom();
@@ -244,7 +259,6 @@ export async function mountViewer(
                 }
                 return;
             }
-
             while (api.getZoom() < zoom) {
                 const before = api.getZoom();
                 if (typeof controller.zoomIn !== 'function') {
@@ -296,11 +310,9 @@ export async function mountViewer(
             if (!normalizedQuery) {
                 return [];
             }
-
             if (typeof controller.searchDocument !== 'function') {
                 throw new Error('Search is not supported by the viewer controller.');
             }
-
             const rawResults = await controller.searchDocument(normalizedQuery);
             return normalizeSearchResults(rawResults);
         },
@@ -329,7 +341,6 @@ export async function mountViewer(
             if (typeof controller.update !== 'function') {
                 throw new Error('Changing the theme is not supported by the viewer controller.');
             }
-
             void controller.update({
                 options: {
                     theme,
@@ -363,12 +374,11 @@ export async function mountViewer(
             if (destroyed) {
                 return;
             }
-
             destroyed = true;
+            document.removeEventListener('selectionchange', handleSelectionChange);
             unsubscribe?.();
             controller.destroy?.();
             currentFile = null;
-
             if (container.isConnected) {
                 container.replaceChildren();
             }
@@ -384,35 +394,25 @@ export async function mountViewer(
 }
 
 function handleViewerEvent(event: unknown, bridge: AndroidJsBridge): void {
+    bridge.log(`[Docxion] Viewer event: ${JSON.stringify(event)}`);
+
     const value = asRecord(event);
     if (!value) {
+        bridge.log('[Docxion] Viewer event ignored: invalid event.');
         return;
     }
 
-    const detail = asRecord(value.detail);
+    const type = String(value.type);
+    bridge.log(`[Docxion] Viewer event type: ${type}`);
 
-    switch (value.type) {
-        case 'selection':
-        case 'text-selected': {
-            bridge.textSelected(
-                typeof detail?.text === 'string' ? detail.text : null
-            );
+    if (type === 'error') {
+        const detail = asRecord(value.detail);
+        if (typeof detail?.message !== 'string') {
+            bridge.log('[Docxion] Error event ignored: missing message.');
             return;
         }
-
-        case 'error': {
-            if (typeof detail?.message !== 'string') {
-                return;
-            }
-            bridge.error(
-                detail.message,
-                typeof detail.code === 'string' ? detail.code : undefined
-            );
-            return;
-        }
-
-        default:
-            return;
+        bridge.error(detail.message, typeof detail.code === 'string' ? detail.code : undefined);
+        return;
     }
 }
 

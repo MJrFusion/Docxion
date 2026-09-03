@@ -115,6 +115,17 @@
         updateControls();
         setStatus(`Loading ${file.name}...`);
 
+        /**
+         * Viewer configuration used by the bundler test harness.
+         *
+         * The `androidBridge` callback mirrors the selection callback
+         * exposed by the production Android integration. It receives
+         * the geometry of the current text selection as one or more
+         * rectangles, or `null` when there is no active selection.
+         *
+         * This callback exists only for testing the built UDM bundle
+         * and is not part of the production application.
+         */
         const options = {
             file: file,
             theme: 'light',
@@ -128,6 +139,77 @@
             presentation: {
                 pptWorkerUrl: new URL('./vendor/ppt/worker.mjs', window.location.href).toString(),
                 pptxWorkerUrl: new URL('./vendor/pptx/pptx.worker.js', window.location.href).toString()
+            },
+            androidBridge: {
+                /**
+                 * Called whenever the browser text selection changes.
+                 *
+                 * @param {Object|null} selection
+                 * The current text selection geometry, or `null` when
+                 * there is no valid selection.
+                 *
+                 * @param {Array<Object>} [selection.rects]
+                 * Selection rectangles containing `left`, `top`,
+                 * `right`, and `bottom` coordinates.
+                 */
+                onTextSelected(selection) {
+                    console.log(
+                        '[Bundler Test] Text selection:',
+                        selection
+                    );
+                },
+
+                /**
+                 * Receives diagnostic messages from the viewer bridge.
+                 *
+                 * @param {string} message
+                 */
+                log(message) {
+                    console.log('[Bundler Test] Bridge:', message);
+                },
+
+                /**
+                 * Called when the current page changes.
+                 *
+                 * @param {number} page
+                 * @param {number} totalPages
+                 */
+                onPageChanged(page, totalPages) {
+                    console.log(
+                        `[Bundler Test] Page changed: ${page}/${totalPages}`
+                    );
+                },
+
+                /**
+                 * Called when the viewer zoom changes.
+                 *
+                 * @param {number} zoom
+                 */
+                onZoomChanged(zoom) {
+                    console.log('[Bundler Test] Zoom changed:', zoom);
+                },
+
+                /**
+                 * Called when the viewer is ready.
+                 *
+                 * @param {number} timestamp
+                 */
+                onReady(timestamp) {
+                    console.log('[Bundler Test] Viewer ready:', timestamp);
+                },
+
+                /**
+                 * Called when the viewer reports an error.
+                 *
+                 * @param {string} message
+                 * @param {string|undefined} code
+                 */
+                onError(message, code) {
+                    console.error(
+                        '[Bundler Test] Viewer error:',
+                        code ? `${code}: ${message}` : message
+                    );
+                }
             }
         };
 

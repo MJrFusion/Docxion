@@ -42,6 +42,7 @@ function requireViewer(): ViewerAPI {
 
 function updateControls(): void {
     const disabled = viewer === null;
+
     previousButton.disabled = disabled;
     nextButton.disabled = disabled;
     zoomOutButton.disabled = disabled;
@@ -77,6 +78,37 @@ async function loadFile(file: File): Promise<void> {
             pptWorkerUrl: new URL('vendor/ppt/worker.mjs', baseUrl).toString(),
             pptxWorkerUrl: new URL('vendor/pptx/pptx.worker.js', baseUrl).toString(),
         },
+        androidBridge: {
+            log(message: string): void {
+                console.log('[Bridge] log:', message);
+            },
+
+            onPageChanged(page: number, totalPages: number): void {
+                console.log('[Bridge] Page changed:', {
+                    page,
+                    totalPages,
+                });
+            },
+
+            onZoomChanged(zoom: number): void {
+                console.log('[Bridge] Zoom changed:', zoom);
+            },
+
+            onTextSelected(selection): void {
+                console.log('[Bridge] Selection:', selection);
+            },
+
+            onReady(timestamp: number): void {
+                console.log('[Bridge] Ready:', timestamp);
+            },
+
+            onError(message: string, code?: string): void {
+                console.error('[Bridge] Error:', {
+                    message,
+                    code,
+                });
+            },
+        },
     };
 
     try {
@@ -98,6 +130,7 @@ async function openSelectedFile(): Promise<void> {
 async function previousPage(): Promise<void> {
     const api = requireViewer();
     const page = api.getCurrentPage();
+
     if (page > 1) {
         await api.goToPage(page - 1);
     }
@@ -107,6 +140,7 @@ async function nextPage(): Promise<void> {
     const api = requireViewer();
     const page = api.getCurrentPage();
     const totalPages = api.getTotalPages();
+
     if (page > 0 && page < totalPages) {
         await api.goToPage(page + 1);
     }
@@ -131,13 +165,16 @@ async function fitPage(): Promise<void> {
 async function search(): Promise<void> {
     const api = requireViewer();
     const query = searchInput.value.trim();
+
     if (!query) {
         return;
     }
 
     try {
         const results = await api.search(query);
+
         console.log('Search results:', results);
+
         if (results.length > 0) {
             await api.goToNextMatch();
         }
@@ -160,6 +197,7 @@ function clearSearch(): void {
 }
 
 function print(): void {
+    console.log('Print requested.');
     requireViewer().print();
 }
 
@@ -180,12 +218,14 @@ function destroyViewer(): void {
     if (!viewer) {
         return;
     }
+
     viewer.destroy();
     viewer = null;
     viewerContainer.replaceChildren();
     fileName.textContent = 'No document selected';
     searchInput.value = '';
     updateControls();
+
     console.log('Viewer destroyed.');
 }
 
@@ -199,9 +239,11 @@ function handleAction(action: () => void | Promise<void>): void {
 
 filePicker.addEventListener('change', (): void => {
     const file = filePicker.files?.[0];
+
     if (!file) {
         return;
     }
+
     handleAction(() => loadFile(file));
 });
 
@@ -253,6 +295,7 @@ searchInput.addEventListener('keydown', (event: KeyboardEvent): void => {
     if (event.key !== 'Enter') {
         return;
     }
+
     event.preventDefault();
     handleAction(search);
 });
@@ -275,6 +318,49 @@ closeButton.addEventListener('click', (): void => {
 
 destroyButton.addEventListener('click', (): void => {
     handleAction(destroyViewer);
+});
+
+document.addEventListener('selectionchange', (): void => {
+    requestAnimationFrame(() => {
+        const selection = window.getSelection();
+
+        console.log('[Native Selection]', {
+            text: selection?.toString(),
+            type: selection?.type,
+            rangeCount: selection?.rangeCount,
+            isCollapsed: selection?.isCollapsed,
+            anchorNode: selection?.anchorNode,
+            anchorOffset: selection?.anchorOffset,
+            focusNode: selection?.focusNode,
+            focusOffset: selection?.focusOffset,
+        });
+
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+
+            console.log('[Native Range]', {
+                text: range.toString(),
+                collapsed: range.collapsed,
+                startContainer: range.startContainer,
+                startOffset: range.startOffset,
+                endContainer: range.endContainer,
+                endOffset: range.endOffset,
+                rects: Array.from(range.getClientRects()),
+            });
+        }
+    });
+});
+
+document.addEventListener('mouseup', e => {
+    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+
+    console.log({
+        x: e.clientX,
+        y: e.clientY,
+        node: range?.startContainer,
+        offset: range?.startOffset,
+        text: range?.startContainer?.textContent
+    });
 });
 
 document.addEventListener('keydown', (event: KeyboardEvent): void => {
@@ -354,6 +440,7 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
 }).viewerDev = {
     state(): void {
         const api = requireViewer();
+
         console.log('Viewer:', {
             ready: api.isReady(),
             file: api.getCurrentFile(),
@@ -410,7 +497,7 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
     },
 
     print(): void {
-        requireViewer().print();
+        print();
     },
 
     light(): void {

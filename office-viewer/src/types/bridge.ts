@@ -1,4 +1,4 @@
-import type { AndroidCallbacks } from './types/core';
+import { AndroidCallbacks, TextSelection } from "./core";
 
 /**
  * One-way adapter from the viewer integration to Android.
@@ -18,12 +18,16 @@ export class AndroidJsBridge {
         this.android?.onZoomChanged(zoom);
     }
 
-    textSelected(text: string | null): void {
-        this.android?.onTextSelected(text);
+    textSelected(selection: TextSelection | null): void {
+        this.android?.onTextSelected(selection);
     }
 
     ready(timestamp: number): void {
         this.android?.onReady(timestamp);
+    }
+
+    log(message: string): void {
+        this.android?.log(message);
     }
 
     error(message: string, code?: string): void {
