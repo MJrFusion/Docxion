@@ -18,21 +18,32 @@ The repository contains three main parts:
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Project Structure](#project-structure)
-- [Architecture](#architecture)
-- [Components](#components)
-  - [Docxion Android Library](#docxion-android-library)
-  - [office-viewer](#office-viewer)
-  - [Example](#example)
-- [Supported Documents](#supported-documents)
-- [Android Integration](#android-integration)
-- [Viewer API](#viewer-api)
-- [Callbacks](#callbacks)
-- [Getting Started](#getting-started)
-- [Repository Development](#repository-development)
-- [Project Scope](#project-scope)
-- [License](#license)
+- [Docxion](#docxion)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Installation](#installation)
+    - [Add the JitPack repository](#add-the-jitpack-repository)
+    - [Add Docxion](#add-docxion)
+    - [Sync Gradle](#sync-gradle)
+  - [Project Structure](#project-structure)
+  - [Architecture](#architecture)
+    - [Android to JavaScript](#android-to-javascript)
+    - [JavaScript to Android](#javascript-to-android)
+  - [Components](#components)
+    - [Docxion Android Library](#docxion-android-library)
+    - [office-viewer](#office-viewer)
+    - [Example](#example)
+  - [Supported Documents](#supported-documents)
+  - [Android Integration](#android-integration)
+  - [Viewer API](#viewer-api)
+  - [Callbacks](#callbacks)
+  - [Getting Started](#getting-started)
+  - [Repository Development](#repository-development)
+    - [Android Library](#android-library)
+    - [TypeScript Viewer](#typescript-viewer)
+    - [Example Application](#example-application)
+  - [Project Scope](#project-scope)
+  - [License](#license)
 
 ---
 
@@ -61,6 +72,68 @@ Document Renderers
 ```
 
 The Android library provides a native Kotlin API while keeping the document rendering and viewer functionality in the underlying TypeScript/JavaScript implementation.
+
+---
+
+## Installation
+
+Docxion is distributed through [JitPack](https://jitpack.io/).
+
+### Add the JitPack repository
+
+In the consuming Android project's `settings.gradle`:
+
+```groovy
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
+    repositories {
+        google()
+        mavenCentral()
+        maven { url = uri('https://jitpack.io') }
+    }
+}
+```
+
+For `settings.gradle.kts`:
+
+```kotlin
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+
+    repositories {
+        google()
+        mavenCentral()
+        maven("https://jitpack.io")
+    }
+}
+```
+
+### Add Docxion
+
+For Groovy:
+
+```groovy
+dependencies {
+    implementation 'com.github.mjrfusion:docxion:1.0.0-alpha.1'
+}
+```
+
+For Kotlin DSL:
+
+```kotlin
+dependencies {
+    implementation("com.github.mjrfusion:docxion:1.0.0-alpha.1")
+}
+```
+
+> **Note:** `1.0.0-alpha.1` is the first public alpha release of Docxion. The API and implementation may change in future alpha releases.
+
+### Sync Gradle
+
+Sync the project after adding the repository and dependency. Gradle will retrieve Docxion from JitPack.
+
+For installation, configuration, API details, and Android usage, see [the Docxion Android Library documentation](Docxion/README.md).
 
 ---
 
@@ -319,39 +392,53 @@ The TypeScript viewer exposes the following general API surface:
 
 ```typescript
 interface ViewerAPI {
+
     openFile(file: File | string): Promise<void>;
+
     closeFile(): void;
 
     getCurrentFile(): File | string | null;
 
     goToPage(page: number): Promise<void>;
+
     getCurrentPage(): number;
+
     getTotalPages(): number;
 
     setZoom(zoom: number): Promise<void>;
+
     getZoom(): number;
+
     zoomIn(step?: number): Promise<void>;
+
     zoomOut(step?: number): Promise<void>;
 
     fitToWidth(): Promise<void>;
+
     fitToPage(): Promise<void>;
 
     search(query: string): Promise<SearchResult[]>;
+
     clearSearch(): void;
 
     goToNextMatch(): Promise<void>;
+
     goToPreviousMatch(): Promise<void>;
 
     getSelectedText(): string | null;
+
     clearSelection(): void;
 
     setTheme(theme: 'light' | 'dark'): void;
+
     getTheme(): 'light' | 'dark';
 
     print(): void;
+
     destroy(): void;
 
     isReady(): boolean;
+
 }
 ```
 
@@ -367,6 +454,7 @@ The callback surface includes:
 
 ```typescript
 interface AndroidCallbacks {
+
     log(message: string): void;
 
     onPageChanged(
@@ -390,6 +478,7 @@ interface AndroidCallbacks {
         message: string,
         code?: string
     ): void;
+
 }
 ```
 
@@ -441,7 +530,7 @@ office-viewer/
 
 See:
 
-[office-viewer/README.md](office-viewer/README.md)
+office-viewer/README.md
 
 ### Example Application
 
@@ -478,7 +567,6 @@ The project structure, APIs, and packaging may evolve as development continues.
 Copyright 2026 MJrFusion
 
 Licensed under the Apache License, Version 2.0 (the "License");
-
 you may not use this file except in compliance with the License.
 
 You may obtain a copy of the License at
@@ -487,7 +575,6 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
 See the License for the specific language governing permissions and
