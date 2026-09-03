@@ -37,12 +37,9 @@ fun DocxionViewer(
         factory = { context ->
             DocxionWebView(context).apply {
                 currentCallbacks.value?.let(::setCallbacks)
+                currentOnApiCreated.value(webApi)
 
                 loadDocxion()
-
-                currentOnApiCreated.value(
-                    DocxionWebViewApi(this)
-                )
             }
         }
     )
