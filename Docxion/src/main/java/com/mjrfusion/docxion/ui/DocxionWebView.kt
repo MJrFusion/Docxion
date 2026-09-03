@@ -3,6 +3,7 @@ package com.mjrfusion.docxion.ui
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
+import android.view.ActionMode
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -13,6 +14,7 @@ import androidx.webkit.WebViewAssetLoader
 import com.mjrfusion.docxion.bridge.DocxionJsBridge
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
 import com.mjrfusion.docxion.bridge.impl.DocxionJsBridgeImpl
+import com.mjrfusion.docxion.bridge.impl.DocxionWebViewApiImpl
 import com.mjrfusion.docxion.callback.DocxionCallbacks
 import com.mjrfusion.docxion.client.DocxionFilePathHandler
 import com.mjrfusion.docxion.client.DocxionWebViewClient
@@ -218,7 +220,7 @@ class DocxionWebView(context: Context) : WebView(context) {
         }
 
         webViewClient = DocxionWebViewClient(assetLoader)
-        webApi = DocxionWebViewApi(this)
+        webApi = DocxionWebViewApiImpl(this)
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -236,6 +238,14 @@ class DocxionWebView(context: Context) : WebView(context) {
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         Timber.d("WebView size: ${w}x${h}")
+    }
+
+    override fun startActionMode(callback: ActionMode.Callback, type: Int): ActionMode? {
+        return null
+    }
+
+    override fun startActionMode(callback: ActionMode.Callback): ActionMode? {
+        return null
     }
 
     /**

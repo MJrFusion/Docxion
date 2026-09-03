@@ -25,11 +25,9 @@ fun DocxionViewer(
     callbacks: DocxionCallbacks? = null,
     onApiCreated: (DocxionWebViewApi) -> Unit = {}
 ) {
-    val currentCallbacks =
-        rememberUpdatedState(callbacks)
+    val currentCallbacks = rememberUpdatedState(callbacks)
 
-    val currentOnApiCreated =
-        rememberUpdatedState(onApiCreated)
+    val currentOnApiCreated = rememberUpdatedState(onApiCreated)
 
     AndroidView(
         modifier = modifier,

@@ -42,13 +42,14 @@ interface DocxionJsBridge {
     )
 
     /**
-     * Reports that the selected text changed.
+     * Reports that the text selection changed.
      *
-     * @param text selected text, or null when there is no selection
+     * @param selectionJson JSON representation of the current selection,
+     * or null when there is no active selection
      */
     @JavascriptInterface
     fun onTextSelected(
-        text: String?
+        selectionJson: String?
     )
 
     /**

@@ -1,5 +1,7 @@
 package com.mjrfusion.docxion.callback
 
+import com.mjrfusion.docxion.model.TextSelection
+
 /**
  * Receives events emitted by the Docxion JavaScript viewer.
  *
@@ -37,12 +39,13 @@ interface DocxionCallbacks {
     )
 
     /**
-     * Called when the selected text changes.
+     * Called when the text selection changes.
      *
-     * @param text selected text, or null when there is no selection
+     * @param selection current selection geometry, or null when there is
+     * no active selection
      */
     fun onTextSelected(
-        text: String?
+        selection: TextSelection?
     )
 
     /**
