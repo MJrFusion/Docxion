@@ -52,3 +52,6 @@ google-services.json
 # Temporary files
 *.tmp
 *.swp
+src/main/assets/docxion/vendor/
+src/main/assets/docxion/index.umd.js
+src/main/assets/docxion/flyfish-viewer-assets.json
