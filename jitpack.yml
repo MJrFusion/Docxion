@@ -2,6 +2,4 @@ jdk:
   - openjdk17
 
 install:
-  - cd office-viewer && npm ci && npm run build && cd ..
-  - cp -R office-viewer/dist/. Docxion/Docxion/src/main/assets/docxion/
   - cd Docxion && ./gradlew :Docxion:publishReleasePublicationToMavenLocal

@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    outputs:
+      release_version: ${{ steps.release_version.outputs.version }}
+      is_release: ${{ steps.release_version.outputs.is_release }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: office-viewer/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: office-viewer
+        run: npm ci
+
+      - name: Build web viewer
+        working-directory: office-viewer
+        run: npm run build
+
+      - name: Bundle web viewer into Android library
+        run: cp -R office-viewer/dist/. Docxion/Docxion/src/main/assets/docxion/
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: Docxion/gradle/libs.versions.toml
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Example application
+        working-directory: Docxion
+        run: ./gradlew :Example:assembleDebug --no-daemon
+
+      - name: Validate release commit message
+        id: release_version
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          if [[ "$COMMIT_MESSAGE" =~ ^Final\ release\ to\ ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+            echo "Release commit detected: $VERSION"
+          else
+            echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
+
+            echo "Not a release commit."
+          fi
+
+      - name: Upload Android-ready assets
+        if: steps.release_version.outputs.is_release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-assets-${{ steps.release_version.outputs.version }}
+          path: Docxion/Docxion/src/main/assets/docxion/
+          if-no-files-found: error
+          retention-days: 1
+
+  prepare-release:
+    name: Prepare Release
+    needs: build
+    if: needs.build.outputs.is_release == 'true'
+    permissions:
+      contents: write
+      actions: read
+
+    uses: ./.github/workflows/prepare-release.yml
+    with:
+      version: ${{ needs.build.outputs.release_version }}
+      artifact-name: android-assets-${{ needs.build.outputs.release_version }}
+      commit-sha: ${{ github.sha }}
+    secrets: inherit

@@ -1,0 +1,115 @@
+name: Prepare Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version
+        required: true
+        type: string
+
+      artifact-name:
+        description: Android-ready assets artifact
+        required: true
+        type: string
+
+      commit-sha:
+        description: Commit that was successfully built by CI
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: Prepare ${{ inputs.version }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit-sha }}
+          fetch-depth: 1
+
+      - name: Download Android-ready assets
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: Docxion/Docxion/src/main/assets/docxion/
+
+      - name: Verify generated assets
+        run: test -d Docxion/Docxion/src/main/assets/docxion/vendor
+
+      - name: Configure Git
+        run: |
+          git config user.name "MJrFusion[bot]"
+          git config user.email "github-actions@mjrfusion.com"
+
+      - name: Temporarily allow generated assets
+        working-directory: Docxion
+        run: |
+          sed -i '\|src/main/assets/docxion/vendor/|d' .gitignore
+          sed -i '\|src/main/assets/docxion/index.umd.js|d' .gitignore
+          sed -i '\|src/main/assets/docxion/flyfish-viewer-assets.json|d' .gitignore
+
+      - name: Commit release assets
+        run: |
+          git add Docxion/.gitignore
+
+          git add -f \
+            Docxion/Docxion/src/main/assets/docxion/vendor \
+            Docxion/Docxion/src/main/assets/docxion/index.umd.js \
+            Docxion/Docxion/src/main/assets/docxion/flyfish-viewer-assets.json
+
+          git commit \
+            -m "build: bundle office viewer assets for ${{ inputs.version }}"
+
+      - name: Create release tag
+        run: |
+          git tag \
+            -a "${{ inputs.version }}" \
+            -m "Release ${{ inputs.version }}"
+
+      - name: Push release commit and tag
+        run: |
+          git push origin HEAD:main
+          git push origin "${{ inputs.version }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ inputs.version }}" \
+            --title "Docxion ${{ inputs.version }}" \
+            --generate-notes
+
+      - name: Restore generated asset exclusions
+        working-directory: Docxion
+        run: |
+          printf '%s\n' \
+            'src/main/assets/docxion/vendor/' \
+            'src/main/assets/docxion/index.umd.js' \
+            'src/main/assets/docxion/flyfish-viewer-assets.json' \
+            >> .gitignore
+
+      - name: Remove generated assets from main
+        run: |
+          git rm -r --ignore-unmatch \
+            Docxion/Docxion/src/main/assets/docxion/vendor
+
+          git rm --ignore-unmatch \
+            Docxion/Docxion/src/main/assets/docxion/index.umd.js \
+            Docxion/Docxion/src/main/assets/docxion/flyfish-viewer-assets.json
+
+      - name: Commit cleanup
+        run: |
+          git add Docxion/.gitignore
+
+          git commit \
+            -m "chore: remove bundled office viewer assets"
+
+      - name: Push cleanup commit
+        run: git push origin HEAD:main
