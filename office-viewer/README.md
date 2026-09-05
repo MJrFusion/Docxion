@@ -4,13 +4,11 @@
 >
 > `office-viewer` is currently in the early stages of development. APIs, packaging, and project structure may change as the project evolves.
 
-`office-viewer` is a Vite/React/TypeScript wrapper around the underlying file viewer.
+`office-viewer` is a Vite/TypeScript wrapper around the underlying file viewer.
 
-It provides the office-focused viewer layer used by the Docxion Android library. The package mounts the underlying file viewer, connects the Word, Spreadsheet, and Presentation renderers, and exposes a small programmatic `ViewerAPI` for controlling documents.
+It provides the web-based viewer layer used by the Docxion Android library. The package mounts the underlying file viewer, connects the Word, Spreadsheet, and Presentation renderers, and exposes a small programmatic `ViewerAPI` for controlling documents.
 
 The package is focused on Microsoft Office and document viewing.
-
----
 
 ## Table of Contents
 
@@ -33,8 +31,6 @@ The package is focused on Microsoft Office and document viewing.
 - [Project Scope](#project-scope)
 - [License](#license)
 
----
-
 ## Overview
 
 `office-viewer` provides the TypeScript/JavaScript viewer layer used by the Docxion Android library.
@@ -50,7 +46,7 @@ office-viewer
         +--------------------+
         |                    |
         v                    v
-ViewerAPI             Android Bridge
+   ViewerAPI          Android Bridge
         |                    |
         v                    v
 TypeScript Host       Docxion Android
@@ -59,8 +55,6 @@ TypeScript Host       Docxion Android
 The underlying file viewer is responsible for document rendering and controller functionality.
 
 `office-viewer` adapts that functionality into a small, explicit API focused on office/document viewing.
-
----
 
 ## Current Status
 
@@ -72,11 +66,9 @@ mountViewer(container, options)
 
 entry point rather than a React component.
 
-The bundled development entrypoint under `src/dev/` demonstrates the intended usage and provides a local environment for testing the viewer.
+The development entrypoint under `src/dev/` demonstrates the intended usage and provides a local environment for testing the viewer.
 
 The public viewer API is intentionally kept small and close to the underlying controller.
-
----
 
 ## Project Structure
 
@@ -98,8 +90,6 @@ office-viewer/
 ```
 
 The exact source structure may evolve as the package develops.
-
----
 
 ## Architecture
 
@@ -128,15 +118,13 @@ The wrapper does not reimplement document rendering.
 
 Instead, it:
 
-- Mounts the underlying viewer
-- Connects office document renderers
-- Adapts controller operations
-- Normalizes the public API
-- Provides search configuration
-- Provides presentation worker configuration
-- Connects Android callbacks when supplied
-
----
+- Mounts the underlying viewer.
+- Connects office document renderers.
+- Adapts controller operations.
+- Normalizes the public API.
+- Provides search configuration.
+- Provides presentation worker configuration.
+- Connects Android callbacks when supplied.
 
 ## Installation
 
@@ -145,8 +133,6 @@ From the `office-viewer` directory, install the package dependencies:
 ```bash
 npm install
 ```
-
----
 
 ## Development
 
@@ -160,8 +146,6 @@ The development entrypoint under `src/dev/` demonstrates how the viewer is mount
 
 It can be used to develop and test the viewer independently from the Android library.
 
----
-
 ## Building
 
 Build the distributable bundle with:
@@ -171,8 +155,6 @@ npm run build
 ```
 
 The resulting bundle is used by the Android integration as the JavaScript viewer layer hosted inside the WebView.
-
----
 
 ## Basic Usage
 
@@ -197,8 +179,6 @@ const viewer = await mountViewer(container, {
 
 `mountViewer()` returns a `ViewerAPI` instance that can be used to control the mounted viewer.
 
----
-
 ## Viewer API
 
 The current `ViewerAPI` exposes:
@@ -217,7 +197,6 @@ interface ViewerAPI {
     getZoom(): number;
     zoomIn(step?: number): Promise<void>;
     zoomOut(step?: number): Promise<void>;
-
     fitToWidth(): Promise<void>;
     fitToPage(): Promise<void>;
 
@@ -234,14 +213,11 @@ interface ViewerAPI {
 
     print(): void;
     destroy(): void;
-
     isReady(): boolean;
 }
 ```
 
 The API is designed to provide the operations required by the Android Docxion wrapper while remaining useful for browser-based development and testing.
-
----
 
 ## Configuration
 
@@ -317,8 +293,6 @@ androidBridge?: AndroidCallbacks;
 
 This allows the viewer to report events back to the Android host.
 
----
-
 ## File Handling
 
 The viewer accepts either a `File` or a string path through the controller adapter:
@@ -332,8 +306,6 @@ The host environment is responsible for obtaining the file and managing the docu
 The adapter does not maintain a separate document state model. It forwards file and viewer operations to the underlying viewer controller.
 
 When used from Android, the Docxion WebView layer provides the file to the JavaScript viewer through the Android WebView asset-loading mechanism.
-
----
 
 ## Search
 
@@ -354,8 +326,6 @@ viewer.clearSearch();
 ```
 
 If the underlying controller does not support search navigation, the corresponding navigation calls fail explicitly rather than silently doing nothing.
-
----
 
 ## Viewer Controls
 
@@ -387,8 +357,6 @@ clearSelection(): void;
 At the current stage, `getSelectedText()` returns `null` and `clearSelection()` is a no-op because the underlying controller does not expose a documented selection API.
 
 These methods remain part of the public API so the Android-facing contract can stay consistent.
-
----
 
 ## Android Bridge
 
@@ -422,8 +390,6 @@ The bridge can report:
 - Debug log messages
 
 The Android library consumes these events through its `DocxionCallbacks` interface.
-
----
 
 ## Relationship to Docxion
 
@@ -461,8 +427,6 @@ window.DocxionAndroid
 
 This separation keeps document viewing in the TypeScript/JavaScript layer while the Android library focuses on WebView integration and the native Kotlin/Compose API.
 
----
-
 ## Supported Documents
 
 The package is focused on Microsoft Office document viewing.
@@ -479,8 +443,6 @@ The intended document formats include:
 | Microsoft PowerPoint | `.pptx` |
 
 Actual format support is provided by the underlying file viewer and its connected document renderers.
-
----
 
 ## Project Scope
 
@@ -499,23 +461,24 @@ The package does not attempt to replace the underlying document rendering engine
 
 As development continues, APIs and internal structure may change.
 
----
-
 ## License
 
 Copyright 2026 MJrFusion
 
 Licensed under the Apache License, Version 2.0 (the "License");
+
 you may not use this file except in compliance with the License.
 
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
+
 distributed under the License is distributed on an "AS IS" BASIS,
 
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
 See the License for the specific language governing permissions and
+
 limitations under the License.

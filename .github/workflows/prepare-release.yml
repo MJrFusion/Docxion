@@ -65,7 +65,7 @@ jobs:
             Docxion/Docxion/src/main/assets/docxion/flyfish-viewer-assets.json
 
           git commit \
-            -m "build: bundle office viewer assets for ${{ inputs.version }}"
+                -m "build: bundle office viewer assets for ${{ inputs.version }} [skip ci]"
 
       - name: Create release tag
         run: |
@@ -109,7 +109,7 @@ jobs:
           git add Docxion/.gitignore
 
           git commit \
-            -m "chore: remove bundled office viewer assets"
+            -m "chore: remove bundled office viewer assets [skip ci]"
 
       - name: Push cleanup commit
         run: git push origin HEAD:main

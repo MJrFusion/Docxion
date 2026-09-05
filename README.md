@@ -18,32 +18,22 @@ The repository contains three main parts:
 
 ## Table of Contents
 
-- [Docxion](#docxion)
-  - [Table of Contents](#table-of-contents)
-  - [Overview](#overview)
-  - [Installation](#installation)
-    - [Add the JitPack repository](#add-the-jitpack-repository)
-    - [Add Docxion](#add-docxion)
-    - [Sync Gradle](#sync-gradle)
-  - [Project Structure](#project-structure)
-  - [Architecture](#architecture)
-    - [Android to JavaScript](#android-to-javascript)
-    - [JavaScript to Android](#javascript-to-android)
-  - [Components](#components)
-    - [Docxion Android Library](#docxion-android-library)
-    - [office-viewer](#office-viewer)
-    - [Example](#example)
-  - [Supported Documents](#supported-documents)
-  - [Android Integration](#android-integration)
-  - [Viewer API](#viewer-api)
-  - [Callbacks](#callbacks)
-  - [Getting Started](#getting-started)
-  - [Repository Development](#repository-development)
-    - [Android Library](#android-library)
-    - [TypeScript Viewer](#typescript-viewer)
-    - [Example Application](#example-application)
-  - [Project Scope](#project-scope)
-  - [License](#license)
+- [Overview](#overview)
+- [Installation](#installation)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [Components](#components)
+  - [Docxion Android Library](#docxion-android-library)
+  - [office-viewer](#office-viewer)
+  - [Example](#example)
+- [Supported Documents](#supported-documents)
+- [Android Integration](#android-integration)
+- [Viewer API](#viewer-api)
+- [Callbacks](#callbacks)
+- [Getting Started](#getting-started)
+- [Repository Development](#repository-development)
+- [Project Scope](#project-scope)
+- [License](#license)
 
 ---
 
@@ -115,7 +105,7 @@ For Groovy:
 
 ```groovy
 dependencies {
-    implementation 'com.github.mjrfusion:docxion:1.0.0-alpha.1'
+    implementation 'com.github.MJrFusion.Docxion:Docxion:<version>'
 }
 ```
 
@@ -123,15 +113,15 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.mjrfusion:docxion:1.0.0-alpha.1")
+    implementation("com.github.MJrFusion.Docxion:Docxion:<version>")
 }
 ```
 
-> **Note:** `1.0.0-alpha.1` is the first public alpha release of Docxion. The API and implementation may change in future alpha releases.
+> **Note:** See the repository's release and tag history for available Docxion versions. The API and implementation may change as the project evolves.
 
 ### Sync Gradle
 
-Sync the project after adding the repository and dependency. Gradle will retrieve Docxion from JitPack.
+Sync the project after adding the repository and dependency. Gradle will retrieve the selected Docxion version from JitPack.
 
 For installation, configuration, API details, and Android usage, see [the Docxion Android Library documentation](Docxion/README.md).
 
