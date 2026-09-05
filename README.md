@@ -18,22 +18,32 @@ The repository contains three main parts:
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Installation](#installation)
-- [Project Structure](#project-structure)
-- [Architecture](#architecture)
-- [Components](#components)
-  - [Docxion Android Library](#docxion-android-library)
-  - [office-viewer](#office-viewer)
-  - [Example](#example)
-- [Supported Documents](#supported-documents)
-- [Android Integration](#android-integration)
-- [Viewer API](#viewer-api)
-- [Callbacks](#callbacks)
-- [Getting Started](#getting-started)
-- [Repository Development](#repository-development)
-- [Project Scope](#project-scope)
-- [License](#license)
+- [Docxion](#docxion)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Installation](#installation)
+    - [Add the JitPack repository](#add-the-jitpack-repository)
+    - [Add Docxion](#add-docxion)
+    - [Sync Gradle](#sync-gradle)
+  - [Project Structure](#project-structure)
+  - [Architecture](#architecture)
+    - [Android to JavaScript](#android-to-javascript)
+    - [JavaScript to Android](#javascript-to-android)
+  - [Components](#components)
+    - [Docxion Android Library](#docxion-android-library)
+    - [office-viewer](#office-viewer)
+    - [Example](#example)
+  - [Supported Documents](#supported-documents)
+  - [Android Integration](#android-integration)
+  - [Viewer API](#viewer-api)
+  - [Callbacks](#callbacks)
+  - [Getting Started](#getting-started)
+  - [Repository Development](#repository-development)
+    - [Android Library](#android-library)
+    - [TypeScript Viewer](#typescript-viewer)
+    - [Example Application](#example-application)
+  - [Project Scope](#project-scope)
+  - [License](#license)
 
 ---
 
@@ -105,7 +115,7 @@ For Groovy:
 
 ```groovy
 dependencies {
-    implementation 'com.github.MJrFusion.Docxion:Docxion:<version>'
+    implementation 'com.github.mjrfusion:docxion:<version>'
 }
 ```
 
@@ -113,7 +123,7 @@ For Kotlin DSL:
 
 ```kotlin
 dependencies {
-    implementation("com.github.MJrFusion.Docxion:Docxion:<version>")
+    implementation("com.github.mjrfusion:docxion:<version>")
 }
 ```
 

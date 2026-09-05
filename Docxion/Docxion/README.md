@@ -69,13 +69,13 @@ maven { url = uri('https://jitpack.io') }
 Then add the Docxion dependency:
 
 ```groovy
-implementation 'com.github.MJrFusion.Docxion:Docxion:<version>'
+implementation 'com.github.mjrfusion:docxion:<version>'
 ```
 
 Kotlin DSL:
 
 ```kotlin
-implementation("com.github.MJrFusion.Docxion:Docxion:<version>")
+implementation("com.github.mjrfusion:docxion:<version>")
 ```
 
 Replace `<version>` with the release you want to consume. See the repository's release and tag history for available versions.
