@@ -2,44 +2,26 @@
 
 > **Project Status: Early Development**
 >
-> This example application demonstrates an early-stage Docxion integration. APIs, packaging, and project structure may change as the project evolves.
+> This example application is currently in the early stages of development. APIs, packaging, and project structure may change as the project evolves.
 
-The **Docxion Example App** is an Android application that demonstrates how to integrate and use the Docxion Android library.
+The `Docxion Example App` is an Android application demonstrating how to integrate the Docxion Android library.
 
-It provides a practical reference for embedding `DocxionViewer` in Jetpack Compose, opening documents through the Android system file picker, controlling the viewer through `DocxionWebViewApi`, and receiving viewer events through `DocxionCallbacks`.
+It shows how to embed `DocxionViewer` in Jetpack Compose, open documents through Android's system document picker, control the viewer through `DocxionWebViewApi`, and receive events through `DocxionCallbacks`.
 
-## Overview
+## Features
 
-The Example app is a reference consumer of the Docxion Android library.
+- `DocxionViewer` embedded in Jetpack Compose
+- Opening documents with Android's system document picker
+- Page navigation
+- Zoom and fit controls
+- Search navigation
+- Light and dark themes
+- Text selection callbacks
+- Printing
+- `DocxionWebViewApi` usage
+- `DocxionCallbacks` usage
 
-It demonstrates how an Android application can:
-
-- Embed `DocxionViewer` in a Jetpack Compose UI.
-- Obtain the viewer API through `onApiCreated`.
-- Open documents using the Android system document picker.
-- Control document navigation, zoom, search, themes, selection, and printing.
-- Receive viewer events through `DocxionCallbacks`.
-- Observe the Android ↔ JavaScript integration exposed by Docxion.
-
-The Example app is intentionally focused on **library integration**. It does not implement the document viewer itself.
-
-## What It Demonstrates
-
-The application currently demonstrates:
-
-- `DocxionViewer` embedded in a Compose screen.
-- `DocxionWebViewApi` captured through `onApiCreated`.
-- `DocxionCallbacks` connected to Android logging.
-- Opening a document with `ActivityResultContracts.OpenDocument`.
-- Closing the current document.
-- Page navigation and current-page queries.
-- Zoom in/out.
-- Fit-to-width and fit-to-page.
-- Search match navigation and clearing search.
-- Clearing text selection.
-- Light and dark themes.
-- Printing.
-- Receiving text-selection geometry from the viewer.
+The Example app is a consumer of the Docxion library. It does not implement the document viewer itself.
 
 ## Project Structure
 
@@ -47,37 +29,86 @@ The Example app is an Android application module inside the Docxion Android proj
 
 ```text
 Docxion/
-├── settings.gradle
-├── build.gradle
-├── gradle.properties
-│
-├── Docxion/                 Android library module
+├── Docxion/                 Android library
 │   ├── build.gradle
 │   └── src/
 │
-└── Example/                 Example Android application
+└── Example/                 Example application
     ├── build.gradle
     ├── src/
     └── README.md
 ```
 
-The Example module consumes the sibling `Docxion` library module directly:
+The Example module uses the local `Docxion` library directly:
 
 ```groovy
-implementation project(':Docxion')
+dependencies {
+    implementation project(':Docxion')
+}
 ```
 
-This allows the example to exercise the current library source without requiring a published Docxion artifact.
+This allows the application to run against the current library source without requiring a published artifact.
+
+## Architecture
+
+The Example app uses the public Android API provided by the Docxion library:
+
+```text
+Example Compose Screen
+        |
+        v
+DocxionViewer
+        |
+        v
+DocxionWebView
+        |
+        v
+Android WebView
+        |
+        v
+TypeScript Viewer
+```
+
+Android controls the viewer through:
+
+```text
+DocxionWebViewApi
+        |
+        v
+JavaScript Viewer
+```
+
+Viewer events are received through:
+
+```text
+JavaScript Viewer
+        |
+        v
+DocxionCallbacks
+        |
+        v
+Example App
+```
+
+The Example app does not communicate with the JavaScript viewer directly. It uses `DocxionWebViewApi` and `DocxionCallbacks`.
+
+## Requirements
+
+For local development, you need:
+
+- Android Studio.
+- Android SDK configured for the project.
+- A connected Android device or emulator.
+- The `Docxion` library module in the same Gradle project.
+- Prepared Docxion WebView assets.
 
 ## Build and Run
 
-Open the **Android project** in Android Studio:
+Open the Android project root in Android Studio:
 
 ```text
 Docxion/
 ```
-
-The project contains both the `Docxion` library module and the `Example` application module.
 
 ### Build the Debug APK
 
@@ -93,13 +124,11 @@ From the Android project root:
 ./gradlew :Example:installDebug
 ```
 
-Alternatively, select the `Example` run configuration in Android Studio and run it normally.
-
-The `Docxion` module is a library and is not launched independently.
+You can also select the `Example` run configuration in Android Studio and run it directly.
 
 ## Basic Integration
 
-The example creates a Compose screen containing the viewer and captures its API:
+The viewer can be embedded in a Compose screen:
 
 ```kotlin
 DocxionViewer(
@@ -110,31 +139,26 @@ DocxionViewer(
 )
 ```
 
-`onApiCreated` provides the `DocxionWebViewApi` once the viewer API becomes available.
+`onApiCreated` provides the `DocxionWebViewApi` once the viewer API is available.
 
 The resulting integration is:
 
 ```text
-Example Compose Screen
-        |
-        v
+Compose UI
+    |
+    v
 DocxionViewer
-        |
-        v
-DocxionWebView
-        |
-        v
+    |
+    v
 DocxionWebViewApi
-        |
-        v
+    |
+    v
 JavaScript Viewer
 ```
 
-The Example app interacts with the viewer through the public Kotlin API and callback interfaces. It does not communicate with the JavaScript viewer directly.
-
 ## Opening Documents
 
-The example uses Android's system document picker:
+The Example app uses Android's system document picker:
 
 ```kotlin
 ActivityResultContracts.OpenDocument()
@@ -146,7 +170,7 @@ After the user selects a document, its `Uri` is passed to Docxion:
 api?.openFile(uri)
 ```
 
-The resulting flow is:
+The flow is:
 
 ```text
 Android File Picker
@@ -158,35 +182,39 @@ Content Uri
 DocxionWebViewApi.openFile(uri)
         |
         v
-DocxionWebView
+Docxion WebView
         |
         v
 JavaScript Viewer
 ```
 
-This demonstrates the intended Android integration for documents returned by Android content providers.
-
 ## Viewer Controls
 
-The example exercises the public `DocxionWebViewApi`, including operations such as:
+The Example app exercises the public `DocxionWebViewApi`.
+
+Common operations include:
 
 ```text
 closeFile()
+
 goToPage(...)
+
 getCurrentPage()
 
-zoomOut()
 zoomIn()
+zoomOut()
+
 fitToWidth()
 fitToPage()
 
 goToPreviousMatch()
 goToNextMatch()
-clearSearch()
 
+clearSearch()
 clearSelection()
 
 setTheme(...)
+
 print()
 ```
 
@@ -194,11 +222,8 @@ For example:
 
 ```kotlin
 api?.zoomIn()
-
 api?.fitToWidth()
-
 api?.goToNextMatch()
-
 api?.setTheme("dark")
 ```
 
@@ -212,20 +237,23 @@ api?.getCurrentPage { page ->
 
 ## Viewer Callbacks
 
-The Example app also demonstrates the `DocxionCallbacks` interface.
-
-The callbacks include:
+The Example app demonstrates the `DocxionCallbacks` interface:
 
 ```text
 log(message)
+
 onPageChanged(page, totalPages)
+
 onZoomChanged(zoom)
+
 onTextSelected(selection)
+
 onReady(timestamp)
+
 onError(message, code)
 ```
 
-The example connects these callbacks to Android logging:
+For example:
 
 ```kotlin
 override fun onReady(timestamp: Long) {
@@ -245,102 +273,63 @@ override fun onError(message: String, code: String?) {
 }
 ```
 
-`onReady` can be used when an application needs to coordinate operations with the JavaScript viewer after it has finished mounting.
+`onReady` can be used when an application needs to coordinate operations with the viewer after it has finished mounting.
 
-## Android ↔ JavaScript Integration
+## Development
 
-The Example app exercises the bridge exposed by the Docxion Android library.
+The Example app is intended to be both a usage reference and a practical integration environment for the Docxion Android library.
 
-Android-to-JavaScript:
-
-```text
-Kotlin
-  |
-  v
-DocxionWebViewApi
-  |
-  v
-WebView
-  |
-  v
-JavaScript Viewer
-```
-
-JavaScript-to-Android:
+When changing the Android library:
 
 ```text
-JavaScript Viewer
-  |
-  v
-Android JavaScript Bridge
-  |
-  v
-DocxionCallbacks
-  |
-  v
-Kotlin
+Edit Docxion
+    |
+    v
+Build Android project
+    |
+    v
+Run Example
 ```
 
-Structured values such as text-selection geometry are serialized across the JavaScript interface and converted into Kotlin models by the Docxion bridge.
-
-The Example app intentionally stays at the public API level; applications using Docxion should normally use `DocxionWebViewApi` and `DocxionCallbacks` rather than the internal bridge implementation.
-
-## Local Development
-
-For local development, the Example app requires:
-
-- An Android SDK configured for the project.
-- A connected Android device or available emulator.
-- The `Docxion` library module in the same Gradle project.
-- The Docxion web viewer assets prepared in the Android library.
-
-During early development, the web viewer build is generated separately and bundled into the Android library assets as part of the project build/release process.
-
-For details about the Android library implementation and asset preparation, see the documentation in the parent Android project.
-
-## Relationship to Docxion
-
-The Example app is a consumer of the Docxion Android library:
+When changing the TypeScript viewer:
 
 ```text
-Example App
+Edit office-viewer
     |
     v
-Docxion Android Library
+npm run build
     |
     v
-Android WebView
+Copy viewer distribution to Docxion assets
     |
     v
-TypeScript Viewer
+Build Android project
     |
     v
-Underlying File Viewer
+Run Example
 ```
 
-The responsibilities are separated as follows:
+The TypeScript viewer is developed separately in `office-viewer` and packaged into the Android library as WebView assets.
 
-- **Example** — demonstrates Android application integration.
-- **Docxion Android library** — provides the Android/Compose API and WebView integration.
-- **TypeScript viewer** — provides the JavaScript viewer layer.
-- **Underlying file viewer** — provides the document viewing and rendering functionality.
+## Related Projects
 
-The Example app therefore serves as both a usage reference and a practical integration test for the Android library.
+- [`Docxion/README.md`](../Docxion/README.md) — Android library documentation.
+- `office-viewer` — TypeScript/Vite viewer used by the Android library.
+- [`../README.md`](../README.md) — Android project documentation.
 
 ## License
 
-Copyright 2026 MJrFusion
+                Copyright 2026 MJrFusion
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at
 
-You may obtain a copy of the License at
+                http://www.apache.org/licenses/LICENSE-2.0
 
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-
-See the License for the specific language governing permissions and
-limitations under the License.
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
+        implied.
+        See the License for the specific language governing permissions 
+        and limitations under the License.

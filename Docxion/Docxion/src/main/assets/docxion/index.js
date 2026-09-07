@@ -41,14 +41,7 @@
     /**
      * DOM element hosting the Docxion viewer.
      */
-    const viewerContainer =
-        document.getElementById('viewer');
-
-    /**
-     * Debug output element used by the host page.
-     */
-    const debug =
-        document.getElementById('debug');
+    const viewerContainer = document.getElementById('viewer');
 
     /**
      * Forwards a log message to Android.
@@ -58,9 +51,7 @@
      * @param {unknown} message message to log
      */
     function log(message) {
-        window.DocxionAndroid?.log(
-            String(message)
-        );
+        window.DocxionAndroid?.log(String(message));
     }
 
     /**
@@ -70,12 +61,7 @@
      * @param {string|null} code optional error code
      */
     function reportError(message, code = null) {
-        window.DocxionAndroid?.onError(
-            String(message),
-            code == null
-                ? null
-                : String(code)
-        );
+        window.DocxionAndroid?.onError(String(message), code == null ? null : String(code));
     }
 
     /**
@@ -83,34 +69,15 @@
      */
     function updateViewportHeight() {
         const height = window.innerHeight;
-
         document.documentElement.style.height = `${height}px`;
         document.body.style.height = `${height}px`;
         viewerContainer.style.height = `${height}px`;
-
-        log(
-            `Viewport height applied: ${height}, ` +
-            `body=${document.body.clientHeight}, ` +
-            `viewer=${viewerContainer.clientHeight}`
-        );
+        log(`Viewport height applied: ${height}, body=${document.body.clientHeight}, viewer=${viewerContainer.clientHeight}`);
     }
 
     updateViewportHeight();
 
-    window.addEventListener(
-        'resize',
-        updateViewportHeight
-    );
-
-    /**
-     * Writes a message to Android and the host page's debug element.
-     *
-     * @param {unknown} message message to display
-     */
-    function logDebug(message) {
-        log(message);
-        debug.textContent = String(message);
-    }
+    window.addEventListener('resize', updateViewportHeight);
 
     /**
      * Returns the currently mounted viewer.
@@ -119,11 +86,8 @@
      */
     function requireViewer() {
         if (!viewer) {
-            throw new Error(
-                'Docxion viewer is not initialized.'
-            );
+            throw new Error('Docxion viewer is not initialized.');
         }
-
         return viewer;
     }
 
@@ -148,9 +112,7 @@
              * @param {string} message viewer log message
              */
             log(message) {
-                window.DocxionAndroid?.log(
-                    String(message)
-                );
+                window.DocxionAndroid?.log(String(message));
             },
 
             /**
@@ -160,10 +122,7 @@
              * @param {number} totalPages total number of pages
              */
             onPageChanged(page, totalPages) {
-                window.DocxionAndroid?.onPageChanged(
-                    Number(page),
-                    Number(totalPages)
-                );
+                window.DocxionAndroid?.onPageChanged(Number(page), Number(totalPages));
             },
 
             /**
@@ -172,9 +131,7 @@
              * @param {number} zoom current zoom level
              */
             onZoomChanged(zoom) {
-                window.DocxionAndroid?.onZoomChanged(
-                    Number(zoom)
-                );
+                window.DocxionAndroid?.onZoomChanged(Number(zoom));
             },
 
             /**
@@ -192,11 +149,7 @@
              * or null when there is no active selection
              */
             onTextSelected(selection) {
-                window.DocxionAndroid?.onTextSelected(
-                    selection == null
-                        ? null
-                        : JSON.stringify(selection)
-                );
+                window.DocxionAndroid?.onTextSelected(selection == null ? null : JSON.stringify(selection));
             },
 
             /**
@@ -205,9 +158,7 @@
              * @param {number} timestamp viewer-ready timestamp
              */
             onReady(timestamp) {
-                window.DocxionAndroid?.onReady(
-                    Number(timestamp)
-                );
+                window.DocxionAndroid?.onReady(Number(timestamp));
             },
 
             /**
@@ -217,12 +168,7 @@
              * @param {string|null} code optional error code
              */
             onError(message, code) {
-                window.DocxionAndroid?.onError(
-                    String(message),
-                    code == null
-                        ? null
-                        : String(code)
-                );
+                window.DocxionAndroid?.onError(String(message), code == null ? null : String(code));
             }
         };
     }
@@ -238,106 +184,31 @@
      * @param {'light'|'dark'} theme initial viewer theme
      * @returns {Promise<boolean>} true when mounting succeeds
      */
-    async function mount(
-        file = undefined,
-        theme = 'light'
-    ) {
-        if (
-            !window.Docxion ||
-            typeof window.Docxion.mountViewer !== 'function'
-        ) {
-            throw new Error(
-                'Docxion.mountViewer() is not available.'
-            );
+    async function mount(file = undefined, theme = 'light') {
+        if (!window.Docxion || typeof window.Docxion.mountViewer !== 'function') {
+            throw new Error('Docxion.mountViewer() is not available.');
         }
-
         if (viewer) {
             viewer.destroy();
             viewer = null;
         }
-
         viewerContainer.replaceChildren();
-
-        logDebug(
-            `Before mount: ${viewerContainer.clientWidth}x${viewerContainer.clientHeight}`
-        );
-
-        log(
-            `Viewport: ` +
-            `inner=${window.innerWidth}x${window.innerHeight}, ` +
-            `document=${document.documentElement.clientWidth}x${document.documentElement.clientHeight}, ` +
-            `body=${document.body.clientWidth}x${document.body.clientHeight}, ` +
-            `viewer=${viewerContainer.clientWidth}x${viewerContainer.clientHeight}, ` +
-            `rect=${viewerContainer.getBoundingClientRect().width}x${viewerContainer.getBoundingClientRect().height}`
-        );
-
-        log(
-            `Computed body: ` +
-            `display=${getComputedStyle(document.body).display}, ` +
-            `position=${getComputedStyle(document.body).position}, ` +
-            `width=${getComputedStyle(document.body).width}, ` +
-            `height=${getComputedStyle(document.body).height}`
-        );
-
-        log(
-            `Computed viewer: ` +
-            `display=${getComputedStyle(viewerContainer).display}, ` +
-            `position=${getComputedStyle(viewerContainer).position}, ` +
-            `width=${getComputedStyle(viewerContainer).width}, ` +
-            `height=${getComputedStyle(viewerContainer).height}`
-        );
 
         viewer = await window.Docxion.mountViewer(
             viewerContainer,
             {
                 file,
                 theme,
-
                 search: {
                     maxMatches: 1000,
                     caseSensitive: false
                 },
-
                 presentation: {
-                    pptWorkerUrl: new URL(
-                        './vendor/ppt/worker.mjs',
-                        window.location.href
-                    ).toString(),
-
-                    pptxWorkerUrl: new URL(
-                        './vendor/pptx/pptx.worker.js',
-                        window.location.href
-                    ).toString()
+                    pptWorkerUrl: new URL('./vendor/ppt/worker.mjs', window.location.href).toString(),
+                    pptxWorkerUrl: new URL('./vendor/pptx/pptx.worker.js', window.location.href).toString()
                 },
-
-                androidBridge:
-                    createAndroidBridge()
+                androidBridge: createAndroidBridge()
             }
-        );
-
-        log(
-            `Docxion children: ${viewerContainer.children.length}`
-        );
-
-        log(
-            `Docxion HTML: ${viewerContainer.innerHTML}`
-        );
-
-        for (const child of viewerContainer.children) {
-            log(
-                `Docxion child: ` +
-                `${child.tagName} ${child.className}, ` +
-                `width=${child.clientWidth}, ` +
-                `height=${child.clientHeight}, ` +
-                `computedWidth=${getComputedStyle(child).width}, ` +
-                `computedHeight=${getComputedStyle(child).height}`
-            );
-        }
-
-        logDebug(
-            `Mounted: ${viewerContainer.clientWidth}x${viewerContainer.clientHeight}, ` +
-            `children=${viewerContainer.children.length}, ` +
-            `ready=${viewer.isReady()}`
         );
 
         return true;
@@ -351,7 +222,6 @@
      * exposed by the mounted TypeScript viewer.
      */
     window.docxionApi = {
-
         /**
          * Opens a document.
          */
@@ -506,11 +376,8 @@
             if (!viewer) {
                 return;
             }
-
             viewer.destroy();
-
             viewer = null;
-
             viewerContainer.replaceChildren();
         },
 
@@ -519,10 +386,7 @@
          * and ready.
          */
         isReady() {
-            return (
-                viewer !== null &&
-                viewer.isReady()
-            );
+            return viewer !== null && viewer.isReady();
         }
     };
 
@@ -532,22 +396,10 @@
      * Errors are forwarded to Android through the same bridge used
      * for normal viewer errors.
      */
-    mount()
-        .catch(error => {
-            const message =
-                String(
-                    error?.message ?? error
-                );
-
-            reportError(
-                message,
-                'MOUNT_ERROR'
-            );
-
-            debug.textContent =
-                'MOUNT ERROR: ' +
-                message;
-        });
+    mount().catch(error => {
+        const message = String(error?.message ?? error);
+        reportError(message, 'MOUNT_ERROR');
+    });
 
     /**
      * Indicates that the host shell has been loaded.
