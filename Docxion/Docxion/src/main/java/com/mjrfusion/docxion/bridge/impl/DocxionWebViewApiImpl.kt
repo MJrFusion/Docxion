@@ -3,6 +3,7 @@ package com.mjrfusion.docxion.bridge.impl
 import android.content.Context
 import android.net.Uri
 import android.util.Base64
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import com.mjrfusion.docxion.bridge.CaptureAspectRatio
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
@@ -22,11 +23,26 @@ import java.io.File
  * The API supports opening documents from either an Android [Uri] or
  * an absolute filesystem path.
  *
+ * Capture operations use a dedicated JavaScript callback interface
+ * because [WebView.evaluateJavascript] does not await JavaScript
+ * Promises. The JavaScript host invokes `DocxionCapture.onCapture()`
+ * when the asynchronous capture has completed.
+ *
  * @param webView WebView hosting the Docxion viewer
  */
 internal class DocxionWebViewApiImpl(
     private val webView: WebView
 ) : DocxionWebViewApi {
+
+    private var captureCallback: ((ByteArray) -> Unit)? = null
+    private val captureBridge = CaptureBridge()
+
+    init {
+        webView.addJavascriptInterface(
+            captureBridge,
+            CAPTURE_BRIDGE_NAME
+        )
+    }
 
     private var temporaryFile: File? = null
 
@@ -95,11 +111,11 @@ internal class DocxionWebViewApiImpl(
 
         evaluate(
             $$"""
-        window.docxionApi.openAndroidFile(
-            $$encodedUrl,
-            $$encodedFileName
-        );
-        """.trimIndent()
+            window.docxionApi.openAndroidFile(
+                $$encodedUrl,
+                $$encodedFileName
+            );
+            """.trimIndent()
         )
     }
 
@@ -390,9 +406,14 @@ internal class DocxionWebViewApiImpl(
     /**
      * Captures the viewer using an explicit width and height.
      *
-     * The JavaScript host converts the resulting [Uint8Array] to a
-     * Base64 string for transport through [WebView.evaluateJavascript].
-     * The Base64 payload is decoded back into a [ByteArray] here.
+     * The JavaScript host performs the asynchronous capture and invokes
+     * the supplied JavaScript callback after the PNG has been generated.
+     * The callback forwards the Base64-encoded PNG through the dedicated
+     * `DocxionCapture` JavaScript interface.
+     *
+     * The result is therefore not obtained from the return value of
+     * [WebView.evaluateJavascript], since that API does not await the
+     * Promise returned by the JavaScript capture function.
      *
      * @param width capture width in pixels
      * @param height capture height in pixels
@@ -411,20 +432,18 @@ internal class DocxionWebViewApiImpl(
             "Capture height must be greater than zero."
         }
 
-        evaluate(
+        capture(
             """
-            window.docxionApi.capture($width, $height);
+                window.docxionApi.capture($width, $height);
             """.trimIndent(),
-            logResult = false
-        ) { result ->
-            parseBase64(result)?.let(callback)
-        }
+            callback
+        )
     }
 
     /**
      * Captures the viewer using the specified height.
      *
-     * The capture width is determined by the JavaScript viewer from its
+     * The JavaScript viewer determines the capture width from its
      * current container width.
      *
      * @param height capture height in pixels
@@ -438,22 +457,19 @@ internal class DocxionWebViewApiImpl(
             "Capture height must be greater than zero."
         }
 
-        evaluate(
+        capture(
             """
-            window.docxionApi.capture($height);
+                window.docxionApi.capture($height);
             """.trimIndent(),
-            logResult = false
-        ) { result ->
-            parseBase64(result)?.let(callback)
-        }
+            callback
+        )
     }
 
     /**
      * Captures the viewer using a predefined aspect ratio.
      *
-     * The JavaScript viewer determines the capture width from its
-     * current container width and derives the capture height from
-     * [aspectRatio].
+     * The JavaScript viewer determines the capture dimensions from
+     * the current viewer container and the supplied aspect ratio.
      *
      * @param aspectRatio capture aspect ratio
      * @param callback receives the captured PNG bytes
@@ -465,37 +481,27 @@ internal class DocxionWebViewApiImpl(
         val encodedAspectRatio =
             JSONObject.quote(aspectRatio.value)
 
-        evaluate(
-            $$"""
-            window.docxionApi.capture($encodedAspectRatio);
+        capture(
+            """
+                window.docxionApi.capture($encodedAspectRatio);
             """.trimIndent(),
-            logResult = false
-        ) { result ->
-            parseBase64(result)?.let(callback)
-        }
+            callback
+        )
     }
 
     /**
      * Prints the current document.
+     * For now, it does nothing and can be subject to deprecation.
      */
     override fun print() {
-        evaluate(
-            """
-            window.docxionApi.print();
-            """.trimIndent()
-        )
+        /* No-Op */
     }
 
     /**
      * Destroys the JavaScript viewer and deletes any temporary URI file.
      */
     override fun destroy() {
-        evaluate(
-            """
-            window.docxionApi.destroy();
-            """.trimIndent()
-        )
-
+        evaluate("window.docxionApi.destroy();")
         temporaryFile?.delete()
         temporaryFile = null
     }
@@ -505,18 +511,92 @@ internal class DocxionWebViewApiImpl(
      *
      * @param callback receives true when the viewer is ready
      */
-    override fun isReady(
-        callback: (Boolean) -> Unit
-    ) {
+    override fun isReady(callback: (Boolean) -> Unit) {
         evaluate(
-            """
-            window.docxionApi.isReady();
-            """.trimIndent()
+            "(async () => { return await window.docxionApi.isReady(); })();"
         ) { result ->
-            when (result) {
-                "true" -> callback(true)
-                "false" -> callback(false)
+            callback(result == "true")
+        }
+    }
+
+    /**
+     * Starts an asynchronous viewer capture.
+     *
+     * A dedicated JavaScript interface is installed for this capture and
+     * receives the Base64 result produced by the JavaScript callback.
+     *
+     * The JavaScript interface exists only for the lifetime of this
+     * capture operation and is removed immediately after the result or
+     * an error is received.
+     *
+     * @param script JavaScript capture invocation
+     * @param callback receives the decoded PNG bytes
+     */
+    private fun capture(
+        script: String,
+        callback: (ByteArray) -> Unit
+    ) {
+        captureCallback = callback
+
+        evaluate(script, logResult = false)
+    }
+
+    /**
+     * JavaScript interface used exclusively for receiving the result
+     * of an asynchronous viewer capture.
+     *
+     * This bridge is separate from the normal Docxion Android callback
+     * bridge because capture is an API result rather than a viewer
+     * callback event.
+     *
+     */
+    private inner class CaptureBridge {
+
+        /**
+         * Receives the Base64-encoded PNG produced by the JavaScript
+         * capture operation.
+         *
+         * The JavaScript host calls this method after
+         * `window.docxionApi.capture()` has completed.
+         *
+         * @param base64 Base64-encoded PNG data
+         */
+        @JavascriptInterface
+        fun onCapture(base64: String) {
+            val bytes = try {
+                Base64.decode(
+                    base64,
+                    Base64.DEFAULT
+                )
+            } catch (exception: IllegalArgumentException) {
+                Timber.e(
+                    exception,
+                    "Failed to decode Docxion capture"
+                )
+                return
             }
+
+            webView.post {
+                webView.removeJavascriptInterface(CAPTURE_BRIDGE_NAME)
+                captureCallback?.invoke(bytes)
+            }
+        }
+
+        /**
+         * Receives an error produced while performing the capture.
+         *
+         * @param error JavaScript error message
+         */
+        @JavascriptInterface
+        fun onError(error: String) {
+            webView.post {
+                webView.removeJavascriptInterface(CAPTURE_BRIDGE_NAME)
+            }
+
+            Timber.e(
+                "Docxion capture failed: %s",
+                error
+            )
         }
     }
 
@@ -556,30 +636,7 @@ internal class DocxionWebViewApiImpl(
     }
 
     /**
-     * Parses a Base64 string returned by [WebView.evaluateJavascript]
-     * into the original binary data.
-     */
-    private fun parseBase64(
-        value: String?
-    ): ByteArray? {
-        val base64 = parseString(value) ?: return null
-
-        return try {
-            Base64.decode(
-                base64,
-                Base64.DEFAULT
-            )
-        } catch (exception: IllegalArgumentException) {
-            Timber.e(
-                exception,
-                "Failed to decode Docxion capture"
-            )
-            null
-        }
-    }
-
-    /**
-     * Evaluates JavaScript on the WebView thread.
+     * Evaluates JavaScript on the WebView.
      *
      * @param script JavaScript source to evaluate
      * @param logResult whether the JavaScript result should be logged
@@ -604,20 +661,33 @@ internal class DocxionWebViewApiImpl(
     }
 
     /**
-     * Parses a JavaScript string result returned by [WebView.evaluateJavascript].
+     * Parses a JavaScript string result returned by
+     * [WebView.evaluateJavascript].
      */
     private fun parseString(
         value: String?
     ): String? {
+        Timber.d("Data: $value")
         if (value == null || value == "null") {
+            Timber.w("Failed to parse JS String, it's null")
             return null
         }
 
         return try {
             JSONObject("""{"value":$value}""")
                 .optString("value", "")
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            Timber.e(e)
             value.removeSurrounding("\"")
         }
+    }
+
+    private companion object {
+
+        /**
+         * Name of the temporary JavaScript interface used by
+         * asynchronous viewer capture operations.
+         */
+        const val CAPTURE_BRIDGE_NAME = "DocxionCapture"
     }
 }

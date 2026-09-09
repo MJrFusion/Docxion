@@ -197,29 +197,47 @@
     }
 
     /**
-     * Captures the rendered viewer and converts the resulting binary
-     * PNG data into a Base64 string.
-     *
-     * The underlying TypeScript ViewerAPI remains binary and returns
-     * a Uint8Array. Base64 conversion exists only at this WebView
-     * host boundary for Android transport.
-     *
-     * @param {number|string} widthOrHeightOrAspectRatio
-     * width, height, or a value from
-     * `Docxion.types.CaptureAspectRatio`
-     *
-     * @param {number|undefined} height output height
-     *
-     * @returns {Promise<string>} Base64 encoded PNG data
-     */
-    async function capture(widthOrHeightOrAspectRatio, height = undefined) {
-        const data = await requireViewer().capture(
-            widthOrHeightOrAspectRatio,
-            height
-        );
+    * Captures the rendered viewer as a PNG and optionally invokes a callback
+    * with the resulting image encoded as a Base64 string.
+    *
+    * The second parameter can either be the capture height or the callback.
+    * When a callback is provided as the second parameter, the height is
+    * considered undefined and the viewer determines the capture dimensions
+    * according to the underlying capture API.
+    *
+    * Supported forms:
+    * * `capture(width, height, callback)`
+    * * `capture(height, callback)`
+    * * `capture(aspectRatio, callback)`
+    * * `capture(width, height)`
+    * * `capture(height)`
+    * * `capture(aspectRatio)`
+    *
+    * @param {number|string} value
+    * Width, height, or aspect ratio passed to the underlying viewer capture API.
+    *
+    * @param {number|Function|undefined} heightOrCallback
+    * Capture height.
+    *
+    * @returns {Promise<string>}
+    * A Promise resolving to the captured PNG encoded as a Base64 string.
+    */
+    async function capture(value, height = undefined) {
+        try {
+            const data = await requireViewer().capture(value, height);
+            const base64 = uint8ArrayToBase64(data);
 
-        return uint8ArrayToBase64(data);
+            window.DocxionCapture.onCapture(base64);
+
+            return base64;
+        } catch (error) {
+            console.error(error);
+            window.DocxionCapture.onError(
+                String(error?.message ?? error)
+            );
+        }
     }
+
 
     /**
      * Creates the AndroidCallbacks adapter consumed by the
@@ -378,10 +396,12 @@
         /**
          * Opens a document.
          */
-        openFile(file) {
-            return requireViewer().openFile(file);
+        openAndroidFile(fileUrl, fileName) {
+            return openAndroidFile(
+                fileUrl,
+                fileName
+            );
         },
-
         /**
          * Closes the current document.
          */
