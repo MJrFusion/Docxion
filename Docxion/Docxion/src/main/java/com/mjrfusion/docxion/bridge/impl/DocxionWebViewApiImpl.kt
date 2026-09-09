@@ -577,8 +577,9 @@ internal class DocxionWebViewApiImpl(
             }
 
             webView.post {
-                webView.removeJavascriptInterface(CAPTURE_BRIDGE_NAME)
-                captureCallback?.invoke(bytes)
+                val callback = captureCallback
+                captureCallback = null
+                callback?.invoke(bytes)
             }
         }
 
