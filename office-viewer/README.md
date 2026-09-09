@@ -64,11 +64,9 @@ npm install
 Mount the viewer into an existing HTML element:
 
 ```ts
-import {
-    CaptureAspectRatio,
-    mountViewer,
-    Theme,
-} from './index';
+import { mountViewer, types } from './index';
+
+const { CaptureAspectRatio, Theme } = types;
 
 const viewer = await mountViewer(container, {
     file,
