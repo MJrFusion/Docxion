@@ -226,7 +226,7 @@
             const data = await requireViewer().capture(value, height);
             const base64 = uint8ArrayToBase64(data);
 
-            window.DocxionCapture.onCapture(base64);
+            window.DocxionCapture?.onCapture?.(base64);
 
             return base64;
         } catch (error) {

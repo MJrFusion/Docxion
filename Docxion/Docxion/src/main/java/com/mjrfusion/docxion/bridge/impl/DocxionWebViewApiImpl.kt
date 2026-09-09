@@ -536,6 +536,10 @@ internal class DocxionWebViewApiImpl(
         script: String,
         callback: (ByteArray) -> Unit
     ) {
+        check(captureCallback == null) {
+            "A capture operation is already in progress."
+        }
+
         captureCallback = callback
 
         evaluate(script, logResult = false)

@@ -359,6 +359,7 @@
     async function capturePortrait() {
         const data = await requireViewer().capture(DocxionTypes.CaptureAspectRatio.RATIO_9_16);
         downloadCapture(data, `capture-9-16-${Date.now()}.png`);
+    }
 
 
     function downloadCapture(data, filename) {
