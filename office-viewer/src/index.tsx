@@ -2,11 +2,17 @@ import { mountViewer as originalMountViewer } from '@file-viewer/web';
 import { wordRenderer } from '@file-viewer/renderer-word';
 import { spreadsheetRenderer } from '@file-viewer/renderer-spreadsheet';
 import { presentationRenderer } from '@file-viewer/renderer-presentation';
+import { snapdom } from '@zumer/snapdom';
 
 import type {
     SearchResult,
     ViewerAPI,
     ViewerOptions,
+} from './types/core';
+
+import {
+    CaptureAspectRatio,
+    Theme,
 } from './types/core';
 
 import {
@@ -91,7 +97,88 @@ async function navigateSearch(
         return;
     }
 
-    throw new Error('Search-result navigation is not supported by the current viewer renderer.');
+    throw new Error(
+        'Search-result navigation is not supported by the current viewer renderer.'
+    );
+}
+
+/**
+ * Returns the DOM element used as the capture target.
+ *
+ * The complete Docxion container is captured.
+ */
+function getCaptureTarget(container: HTMLElement): HTMLElement {
+    return container;
+}
+
+/**
+ * Captures the rendered viewer as a PNG byte array.
+ *
+ * SnapDOM captures the complete DOM subtree and handles rendered
+ * canvas elements as part of its capture pipeline.
+ */
+async function captureViewer(
+    container: HTMLElement,
+    width: number,
+    height: number
+): Promise<Uint8Array> {
+    if (!Number.isFinite(width) || width <= 0) {
+        throw new RangeError('Capture width must be a positive number.');
+    }
+
+    if (!Number.isFinite(height) || height <= 0) {
+        throw new RangeError('Capture height must be a positive number.');
+    }
+
+    const target = getCaptureTarget(container);
+
+    const sourceWidth = Math.round(
+        target.getBoundingClientRect().width
+    );
+
+    const sourceHeight = Math.round(
+        target.getBoundingClientRect().height
+    );
+
+    if (sourceWidth <= 0 || sourceHeight <= 0) {
+        throw new Error('The viewer has no measurable size.');
+    }
+
+    const blob = await snapdom.toBlob(target, {
+        width,
+        height,
+        backgroundColor: '#ffffff',
+        type: 'png',
+    });
+
+    const buffer = await blob.arrayBuffer();
+
+    return new Uint8Array(buffer);
+}
+
+/**
+ * Calculates the capture height for a supported aspect ratio.
+ *
+ * Width is always the full width of the viewer.
+ */
+function getAspectRatioHeight(
+    width: number,
+    aspectRatio: CaptureAspectRatio
+): number {
+    const [widthRatio, heightRatio] = aspectRatio
+        .split(':')
+        .map(Number);
+
+    if (
+        !Number.isFinite(widthRatio) ||
+        !Number.isFinite(heightRatio) ||
+        widthRatio <= 0 ||
+        heightRatio <= 0
+    ) {
+        throw new Error(`Invalid capture aspect ratio: ${aspectRatio}`);
+    }
+
+    return Math.round(width * (heightRatio / widthRatio));
 }
 
 /**
@@ -118,7 +205,7 @@ export async function mountViewer(
             toolbar: false,
             sidebar: false,
         },
-        theme: options.theme ?? 'light',
+        theme: options.theme ?? Theme.LIGHT,
         search: {
             enabled: true,
             maxMatches: options.search?.maxMatches ?? 1000,
@@ -163,8 +250,13 @@ export async function mountViewer(
             (message) => bridge.log(message)
         );
 
-        bridge.log(`[Docxion] DOM selection changed: ${JSON.stringify(selection)}`);
-        bridge.log(`[Docxion] activeElement: ${document.activeElement?.outerHTML?.slice(0, 500)}`);
+        bridge.log(
+            `[Docxion] DOM selection changed: ${JSON.stringify(selection)}`
+        );
+        bridge.log(
+            `[Docxion] activeElement: ${document.activeElement?.outerHTML?.slice(0, 500)
+            }`
+        );
 
         bridge.textSelected(selection);
     };
@@ -173,10 +265,13 @@ export async function mountViewer(
 
     const unsubscribe = controller.subscribe?.((state: unknown) => {
         const page = extractPage(state);
+
         if (page !== undefined) {
             bridge.pageChanged(page, extractTotalPages(state));
         }
+
         const zoom = extractZoom(getProperty(state, 'zoom'));
+
         if (zoom !== undefined) {
             bridge.zoomChanged(zoom);
         }
@@ -190,20 +285,27 @@ export async function mountViewer(
             if (destroyed) {
                 throw new Error('Viewer has been destroyed.');
             }
+
             currentFile = file;
+
             if (typeof controller.update === 'function') {
                 await controller.update({ file });
                 return;
             }
+
             if (typeof controller.load === 'function') {
                 await controller.load({ file });
                 return;
             }
-            throw new Error('Opening another file is not supported by the viewer controller.');
+
+            throw new Error(
+                'Opening another file is not supported by the viewer controller.'
+            );
         },
 
         closeFile(): void {
             currentFile = null;
+
             if (typeof controller.update === 'function') {
                 void controller.update({ file: null });
             }
@@ -217,16 +319,25 @@ export async function mountViewer(
             if (!Number.isFinite(page) || page < 1) {
                 throw new RangeError('Page must be a positive number.');
             }
+
             const currentState = controller.getViewState?.();
             const state = asRecord(currentState);
-            if (typeof controller.applyViewState === 'function' && state) {
+
+            if (
+                typeof controller.applyViewState === 'function' &&
+                state
+            ) {
                 await controller.applyViewState(
                     { ...state, page },
                     { source: 'api', action: 'go-to-page' }
                 );
+
                 return;
             }
-            throw new Error('Page navigation is not supported by the viewer controller.');
+
+            throw new Error(
+                'Page navigation is not supported by the viewer controller.'
+            );
         },
 
         getCurrentPage(): number {
@@ -241,31 +352,48 @@ export async function mountViewer(
             if (!Number.isFinite(zoom) || zoom <= 0) {
                 throw new RangeError('Zoom must be a positive number.');
             }
+
             const currentZoom = api.getZoom();
+
             if (zoom === currentZoom) {
                 return;
             }
+
             if (zoom < currentZoom) {
                 while (api.getZoom() > zoom) {
                     const before = api.getZoom();
+
                     if (typeof controller.zoomOut !== 'function') {
-                        throw new Error('Zoom-out is not supported by the viewer.');
+                        throw new Error(
+                            'Zoom-out is not supported by the viewer.'
+                        );
                     }
+
                     await controller.zoomOut();
+
                     const after = api.getZoom();
+
                     if (after >= before) {
                         break;
                     }
                 }
+
                 return;
             }
+
             while (api.getZoom() < zoom) {
                 const before = api.getZoom();
+
                 if (typeof controller.zoomIn !== 'function') {
-                    throw new Error('Zoom-in is not supported by the viewer.');
+                    throw new Error(
+                        'Zoom-in is not supported by the viewer.'
+                    );
                 }
+
                 await controller.zoomIn();
+
                 const after = api.getZoom();
+
                 if (after <= before) {
                     break;
                 }
@@ -274,46 +402,69 @@ export async function mountViewer(
 
         getZoom(): number {
             const state = controller.getViewState?.();
-            return extractZoom(getProperty(state, 'zoom')) ?? 1;
+
+            return extractZoom(
+                getProperty(state, 'zoom')
+            ) ?? 1;
         },
 
         async zoomIn(step?: number): Promise<void> {
             if (typeof controller.zoomIn !== 'function') {
-                throw new Error('Zoom-in is not supported by the viewer.');
+                throw new Error(
+                    'Zoom-in is not supported by the viewer.'
+                );
             }
+
             await controller.zoomIn(step);
         },
 
         async zoomOut(step?: number): Promise<void> {
             if (typeof controller.zoomOut !== 'function') {
-                throw new Error('Zoom-out is not supported by the viewer.');
+                throw new Error(
+                    'Zoom-out is not supported by the viewer.'
+                );
             }
+
             await controller.zoomOut(step);
         },
 
         async fitToWidth(): Promise<void> {
             if (typeof controller.resetZoom !== 'function') {
-                throw new Error('Fit-to-width is not supported by the viewer controller.');
+                throw new Error(
+                    'Fit-to-width is not supported by the viewer controller.'
+                );
             }
+
             await controller.resetZoom();
         },
 
         async fitToPage(): Promise<void> {
             if (typeof controller.resetZoom !== 'function') {
-                throw new Error('Fit-to-page is not supported by the viewer controller.');
+                throw new Error(
+                    'Fit-to-page is not supported by the viewer controller.'
+                );
             }
+
             await controller.resetZoom();
         },
 
         async search(query: string): Promise<SearchResult[]> {
             const normalizedQuery = query.trim();
+
             if (!normalizedQuery) {
                 return [];
             }
+
             if (typeof controller.searchDocument !== 'function') {
-                throw new Error('Search is not supported by the viewer controller.');
+                throw new Error(
+                    'Search is not supported by the viewer controller.'
+                );
             }
-            const rawResults = await controller.searchDocument(normalizedQuery);
+
+            const rawResults = await controller.searchDocument(
+                normalizedQuery
+            );
+
             return normalizeSearchResults(rawResults);
         },
 
@@ -334,13 +485,17 @@ export async function mountViewer(
         },
 
         clearSelection(): void {
-            // No documented controller operation currently exposes clearing renderer selection.
+            // No documented controller operation currently exposes
+            // clearing renderer selection.
         },
 
-        setTheme(theme: 'light' | 'dark'): void {
+        setTheme(theme: Theme): void {
             if (typeof controller.update !== 'function') {
-                throw new Error('Changing the theme is not supported by the viewer controller.');
+                throw new Error(
+                    'Changing the theme is not supported by the viewer controller.'
+                );
             }
+
             void controller.update({
                 options: {
                     theme,
@@ -355,18 +510,95 @@ export async function mountViewer(
             });
         },
 
-        getTheme(): 'light' | 'dark' {
-            const theme = getProperty(controller.getViewState?.(), 'theme');
-            if (theme === 'dark' || theme === 'light') {
-                return theme;
+        getTheme(): Theme {
+            const theme = getProperty(
+                controller.getViewState?.(),
+                'theme'
+            );
+
+            return theme === Theme.DARK || theme === Theme.LIGHT
+                ? theme
+                : options.theme ?? Theme.LIGHT;
+        },
+
+        async capture(
+            widthOrHeightOrAspectRatio: number | CaptureAspectRatio,
+            height?: number
+        ): Promise<Uint8Array> {
+            if (destroyed) {
+                throw new Error('Viewer has been destroyed.');
             }
-            return options.theme ?? 'light';
+
+            const viewer = getCaptureTarget(container);
+
+            /*
+             * capture(width, height)
+             */
+            if (typeof widthOrHeightOrAspectRatio === 'number') {
+                if (height !== undefined) {
+                    return captureViewer(
+                        container,
+                        widthOrHeightOrAspectRatio,
+                        height
+                    );
+                }
+
+                /*
+                 * capture(height)
+                 *
+                 * The width is the current full width of the viewer.
+                 */
+                const width = Math.round(
+                    viewer.getBoundingClientRect().width
+                );
+
+                if (width <= 0) {
+                    throw new Error(
+                        'The viewer has no measurable width.'
+                    );
+                }
+
+                return captureViewer(
+                    container,
+                    width,
+                    widthOrHeightOrAspectRatio
+                );
+            }
+
+            /*
+             * capture(aspectRatio)
+             *
+             * The width is the current full width of the viewer.
+             */
+            const width = Math.round(
+                viewer.getBoundingClientRect().width
+            );
+
+            if (width <= 0) {
+                throw new Error(
+                    'The viewer has no measurable width.'
+                );
+            }
+
+            const captureHeight = getAspectRatioHeight(
+                width,
+                widthOrHeightOrAspectRatio
+            );
+
+            return captureViewer(
+                container,
+                width,
+                captureHeight
+            );
         },
 
         print(): void {
             if (typeof controller.printRenderedHtml !== 'function') {
-                throw new Error('Printing is not supported by the viewer controller.');
+                throw new Error(
+                    'Printing is not supported by the viewer controller.'
+                );
             }
+
             void controller.printRenderedHtml();
         },
 
@@ -374,11 +606,19 @@ export async function mountViewer(
             if (destroyed) {
                 return;
             }
+
             destroyed = true;
-            document.removeEventListener('selectionchange', handleSelectionChange);
+
+            document.removeEventListener(
+                'selectionchange',
+                handleSelectionChange
+            );
+
             unsubscribe?.();
             controller.destroy?.();
+
             currentFile = null;
+
             if (container.isConnected) {
                 container.replaceChildren();
             }
@@ -390,28 +630,50 @@ export async function mountViewer(
     };
 
     bridge.ready(Date.now());
+
     return api;
 }
 
-function handleViewerEvent(event: unknown, bridge: AndroidJsBridge): void {
-    bridge.log(`[Docxion] Viewer event: ${JSON.stringify(event)}`);
+function handleViewerEvent(
+    event: unknown,
+    bridge: AndroidJsBridge
+): void {
+    bridge.log(
+        `[Docxion] Viewer event: ${JSON.stringify(event)}`
+    );
 
     const value = asRecord(event);
+
     if (!value) {
-        bridge.log('[Docxion] Viewer event ignored: invalid event.');
+        bridge.log(
+            '[Docxion] Viewer event ignored: invalid event.'
+        );
         return;
     }
 
     const type = String(value.type);
-    bridge.log(`[Docxion] Viewer event type: ${type}`);
+
+    bridge.log(
+        `[Docxion] Viewer event type: ${type}`
+    );
 
     if (type === 'error') {
         const detail = asRecord(value.detail);
+
         if (typeof detail?.message !== 'string') {
-            bridge.log('[Docxion] Error event ignored: missing message.');
+            bridge.log(
+                '[Docxion] Error event ignored: missing message.'
+            );
             return;
         }
-        bridge.error(detail.message, typeof detail.code === 'string' ? detail.code : undefined);
+
+        bridge.error(
+            detail.message,
+            typeof detail.code === 'string'
+                ? detail.code
+                : undefined
+        );
+
         return;
     }
 }

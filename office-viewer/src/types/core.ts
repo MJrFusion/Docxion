@@ -53,6 +53,29 @@ export interface AndroidCallbacks {
 }
 
 /**
+ * Supported viewer themes.
+ */
+export enum Theme {
+    LIGHT = 'light',
+    DARK = 'dark',
+}
+
+/**
+ * Supported aspect ratios for document capture.
+ *
+ * The capture width is always the full width of the viewer.
+ * The height is calculated from the selected aspect ratio.
+ */
+export enum CaptureAspectRatio {
+    RATIO_1_1 = '1:1',
+    RATIO_16_9 = '16:9',
+    RATIO_9_16 = '9:16',
+    RATIO_4_3 = '4:3',
+    RATIO_3_4 = '3:4',
+    RATIO_3_2 = '3:2',
+}
+
+/**
  * Programmatic API exposed by the viewer adapter.
  */
 export interface ViewerAPI {
@@ -68,28 +91,61 @@ export interface ViewerAPI {
     zoomOut(step?: number): Promise<void>;
     fitToWidth(): Promise<void>;
     fitToPage(): Promise<void>;
+
     /**
      * Starts/replaces the active search in the underlying viewer.
      *
      * The adapter does not retain the returned matches.
      */
     search(query: string): Promise<SearchResult[]>;
+
     /**
      * Clears the active search in the underlying viewer.
      */
     clearSearch(): void;
+
     /**
      * Navigates the active search owned by the underlying viewer.
      */
     goToNextMatch(): Promise<void>;
+
     /**
      * Navigates the active search owned by the underlying viewer.
      */
     goToPreviousMatch(): Promise<void>;
+
     getSelectedText(): string | null;
     clearSelection(): void;
-    setTheme(theme: 'light' | 'dark'): void;
-    getTheme(): 'light' | 'dark';
+    setTheme(theme: Theme): void;
+    getTheme(): Theme;
+
+    /**
+     * Captures a region of the rendered viewer.
+     *
+     * @param width Exact capture width in pixels.
+     * @param height Exact capture height in pixels.
+     * @returns Encoded image bytes.
+     */
+    capture(width: number, height: number): Promise<Uint8Array>;
+
+    /**
+     * Captures the full viewer width using the supplied height.
+     *
+     * @param height Capture height in pixels.
+     * @returns Encoded image bytes.
+     */
+    capture(height: number): Promise<Uint8Array>;
+
+    /**
+     * Captures the full viewer width using the supplied aspect ratio.
+     *
+     * The height is calculated from the viewer width and aspect ratio.
+     *
+     * @param aspectRatio Supported capture aspect ratio.
+     * @returns Encoded image bytes.
+     */
+    capture(aspectRatio: CaptureAspectRatio): Promise<Uint8Array>;
+
     print(): void;
     destroy(): void;
     isReady(): boolean;
@@ -100,7 +156,7 @@ export interface ViewerAPI {
  */
 export interface ViewerOptions {
     file?: File | string;
-    theme?: 'light' | 'dark';
+    theme?: Theme;
     search?: {
         maxMatches?: number;
         caseSensitive?: boolean;
