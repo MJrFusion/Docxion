@@ -192,7 +192,7 @@ The viewer can then be controlled through `DocxionWebViewApi`:
 api?.zoomIn()
 api?.fitToWidth()
 api?.goToNextMatch()
-api?.setTheme("dark")
+api?.setTheme(Theme.DARK)
 ```
 
 Viewer events are received through `DocxionCallbacks`.

@@ -10,15 +10,18 @@ It mounts the underlying file viewer, connects the Word, Spreadsheet, and Presen
 
 ## Features
 
-- Microsoft Word, Excel, and PowerPoint document viewing
-- Programmatic `ViewerAPI`
-- Page navigation
-- Zoom and fit controls
-- Search and search navigation
-- Light and dark themes
-- Printing
-- Android WebView bridge
-- Configurable presentation workers
+* Microsoft Word, Excel, and PowerPoint document viewing
+* Programmatic `ViewerAPI`
+* Page navigation
+* Zoom and fit controls
+* Search and search navigation
+* Text selection and selection coordinates
+* Light and dark themes
+* Viewer capture
+* Configurable capture aspect ratios
+* Printing
+* Android WebView bridge
+* Configurable presentation workers
 
 ## Architecture
 
@@ -61,15 +64,22 @@ npm install
 Mount the viewer into an existing HTML element:
 
 ```ts
-import { mountViewer } from './index';
+import {
+    CaptureAspectRatio,
+    mountViewer,
+    Theme,
+} from './index';
 
 const viewer = await mountViewer(container, {
     file,
-    theme: 'light',
+
+    theme: Theme.LIGHT,
+
     search: {
         maxMatches: 1000,
         caseSensitive: false,
     },
+
     presentation: {
         pptWorkerUrl,
         pptxWorkerUrl,
@@ -106,8 +116,12 @@ interface ViewerAPI {
     getSelectedText(): string | null;
     clearSelection(): void;
 
-    setTheme(theme: 'light' | 'dark'): void;
-    getTheme(): 'light' | 'dark';
+    setTheme(theme: Theme): void;
+    getTheme(): Theme;
+
+    capture(width: number, height: number): Promise<Uint8Array>;
+    capture(height: number): Promise<Uint8Array>;
+    capture(aspectRatio: CaptureAspectRatio): Promise<Uint8Array>;
 
     print(): void;
     destroy(): void;
@@ -117,9 +131,77 @@ interface ViewerAPI {
 
 ### Text Selection
 
-`getSelectedText()` currently returns `null` and `clearSelection()` is a no-op because the underlying controller does not expose a documented selection API.
+Text selection is exposed through `TextSelection`.
 
-The methods remain part of the public API for compatibility with the Android-facing contract.
+A selection can span multiple lines and is represented by one or more visual rectangles:
+
+```ts
+interface TextSelection {
+    rects: SelectionRect[];
+}
+
+interface SelectionRect {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+}
+```
+
+The Android bridge receives selection changes through:
+
+```ts
+onTextSelected(selection: TextSelection | null): void;
+```
+
+`null` indicates that there is no active text selection.
+
+## Capture
+
+The viewer provides a programmatic capture API for capturing the rendered viewer.
+
+### Exact dimensions
+
+Specify both width and height:
+
+```ts
+const image = await viewer.capture(1080, 1920);
+```
+
+Both dimensions are treated as exact capture dimensions in pixels.
+
+### Full viewer width
+
+Specify only the height to capture using the viewer's full width:
+
+```ts
+const image = await viewer.capture(1920);
+```
+
+### Aspect ratio
+
+The viewer can calculate the capture height from the rendered viewer width and a supported aspect ratio:
+
+```ts
+const image = await viewer.capture(
+    CaptureAspectRatio.RATIO_9_16,
+);
+```
+
+Supported aspect ratios:
+
+```ts
+enum CaptureAspectRatio {
+    RATIO_1_1 = '1:1',
+    RATIO_16_9 = '16:9',
+    RATIO_9_16 = '9:16',
+    RATIO_4_3 = '4:3',
+    RATIO_3_4 = '3:4',
+    RATIO_3_2 = '3:2',
+}
+```
+
+The capture methods return encoded image bytes as a `Uint8Array`.
 
 ## Configuration
 
@@ -127,7 +209,7 @@ The methods remain part of the public API for compatibility with the Android-fac
 interface ViewerOptions {
     file?: File | string;
 
-    theme?: 'light' | 'dark';
+    theme?: Theme;
 
     search?: {
         maxMatches?: number;
@@ -151,13 +233,28 @@ interface ViewerOptions {
 file?: File | string;
 ```
 
+The viewer accepts either a browser `File` or a string source.
+
 ### Theme
 
+Themes are represented by the `Theme` enum:
+
 ```ts
-theme?: 'light' | 'dark';
+enum Theme {
+    LIGHT = 'light',
+    DARK = 'dark',
+}
+```
+
+Example:
+
+```ts
+theme: Theme.DARK
 ```
 
 ### Search
+
+Search can be configured through:
 
 ```ts
 search?: {
@@ -165,6 +262,10 @@ search?: {
     caseSensitive?: boolean;
 };
 ```
+
+`maxMatches` limits the number of returned matches.
+
+`caseSensitive` controls whether search matching is case-sensitive.
 
 ### Presentation
 
@@ -187,6 +288,32 @@ When hosted by Docxion, Android callbacks can be supplied through:
 androidBridge?: AndroidCallbacks;
 ```
 
+The bridge interface is:
+
+```ts
+interface AndroidCallbacks {
+    log(message: string): void;
+
+    onPageChanged(
+        page: number,
+        totalPages: number,
+    ): void;
+
+    onZoomChanged(zoom: number): void;
+
+    onTextSelected(
+        selection: TextSelection | null,
+    ): void;
+
+    onReady(timestamp: number): void;
+
+    onError(
+        message: string,
+        code?: string,
+    ): void;
+}
+```
+
 ## File Handling
 
 The viewer accepts a `File` or string source:
@@ -206,12 +333,30 @@ Search is available through the `ViewerAPI`:
 ```ts
 const results = await viewer.search(query);
 
-viewer.goToNextMatch();
-viewer.goToPreviousMatch();
+await viewer.goToNextMatch();
+await viewer.goToPreviousMatch();
+
 viewer.clearSearch();
 ```
 
-Search results are returned as `SearchResult[]`.
+Search results are returned as `SearchResult[]`:
+
+```ts
+interface SearchResult {
+    pageIndex: number;
+    text: string;
+    rect: {
+        left: number;
+        top: number;
+        right: number;
+        bottom: number;
+    };
+}
+```
+
+The adapter starts or replaces the active search in the underlying viewer.
+
+Search navigation is owned by the underlying viewer. The adapter does not retain the returned matches.
 
 If the underlying controller cannot perform a requested search operation, the API fails explicitly.
 
@@ -237,12 +382,12 @@ DocxionJsBridge
 
 The bridge can report:
 
-- Page changes
-- Zoom changes
-- Text selection
-- Viewer readiness
-- Viewer errors
-- Debug messages
+* Page changes
+* Zoom changes
+* Text selection
+* Viewer readiness
+* Viewer errors
+* Debug messages
 
 Android consumes these events through its `DocxionCallbacks` interface.
 
@@ -254,14 +399,14 @@ window.docxionApi
 
 ## Supported Formats
 
-| Format | Extension |
-|---|---|
-| Microsoft Word | `.doc` |
-| Microsoft Word | `.docx` |
-| Microsoft Excel | `.xls` |
-| Microsoft Excel | `.xlsx` |
-| Microsoft PowerPoint | `.ppt` |
-| Microsoft PowerPoint | `.pptx` |
+| Format               | Extension |
+| -------------------- | --------- |
+| Microsoft Word       | `.doc`    |
+| Microsoft Word       | `.docx`   |
+| Microsoft Excel      | `.xls`    |
+| Microsoft Excel      | `.xlsx`   |
+| Microsoft PowerPoint | `.ppt`    |
+| Microsoft PowerPoint | `.pptx`   |
 
 Format support is provided by the underlying file viewer and its document renderers.
 
@@ -301,17 +446,22 @@ The internal structure may change as the project develops.
 
 ## License
 
-                Copyright 2026 MJrFusion
+```text
+Copyright 2026 MJrFusion
 
-        Licensed under the Apache License, Version 2.0 (the "License");
-        you may not use this file except in compliance with the License.
-        You may obtain a copy of the License at
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-                http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
-        Unless required by applicable law or agreed to in writing, software
-        distributed under the License is distributed on an "AS IS" BASIS,
-        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or 
-        implied.
-        See the License for the specific language governing permissions 
-        and limitations under the License.
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+implied.
+
+See the License for the specific language governing permissions
+and limitations under the License.
+```
+
+Based on the underlying file viewer and its document renderers.
