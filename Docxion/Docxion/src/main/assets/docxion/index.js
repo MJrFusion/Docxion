@@ -200,10 +200,9 @@
     * Captures the rendered viewer as a PNG and optionally invokes a callback
     * with the resulting image encoded as a Base64 string.
     *
-    * The second parameter can either be the capture height or the callback.
-    * When a callback is provided as the second parameter, the height is
-    * considered undefined and the viewer determines the capture dimensions
-    * according to the underlying capture API.
+    * The second parameter is the optional capture height used by the
+    * underlying ViewerAPI overloads (`capture(width, height)` vs `capture(height)`).
+    * When running inside Android, the Base64 result is forwarded to `DocxionCapture`.
     *
     * Supported forms:
     * * `capture(width, height, callback)`
