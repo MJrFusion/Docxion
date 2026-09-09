@@ -185,7 +185,7 @@ function getAspectRatioHeight(
  * Mounts the file viewer and adapts the official controller API
  * to the ViewerAPI exposed to Android.
  */
-export async function mountViewer(
+async function mountViewer(
     container: HTMLElement,
     options: ViewerOptions
 ): Promise<ViewerAPI> {
@@ -678,6 +678,12 @@ function handleViewerEvent(
     }
 }
 
-export default {
+const types = {
+    CaptureAspectRatio,
+    Theme
+};
+
+export {
     mountViewer,
+    types
 };

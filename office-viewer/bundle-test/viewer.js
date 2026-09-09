@@ -8,6 +8,8 @@
      */
     let viewer = null;
 
+    const DocxionTypes = window.Docxion.types;
+
     const SUPPORTED_EXTENSIONS = new Set([
         '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'
     ]);
@@ -39,6 +41,10 @@
     const darkButton = document.getElementById('dark');
     const closeButton = document.getElementById('close');
     const destroyButton = document.getElementById('destroy');
+    const captureButton = document.getElementById('capture');
+    const captureSquareButton = document.getElementById('capture-square');
+    const captureLandscapeButton = document.getElementById('capture-landscape');
+    const capturePortraitButton = document.getElementById('capture-portrait');
 
     function setStatus(message, isError = false) {
         status.textContent = message;
@@ -83,6 +89,10 @@
         darkButton.disabled = !enabled;
         closeButton.disabled = !enabled;
         destroyButton.disabled = !enabled;
+        captureButton.disabled = !enabled;
+        captureSquareButton.disabled = !enabled;
+        captureLandscapeButton.disabled = !enabled;
+        capturePortraitButton.disabled = !enabled;
     }
 
     function clearSearchUi() {
@@ -314,13 +324,53 @@
     }
 
     function setLightTheme() {
-        requireViewer().setTheme('light');
+        requireViewer().setTheme(DocxionTypes.Theme.LIGHT);
         setStatus('Light theme');
     }
 
     function setDarkTheme() {
-        requireViewer().setTheme('dark');
+        requireViewer().setTheme(DocxionTypes.Theme.DARK);
         setStatus('Dark theme');
+    }
+
+    async function capture() {
+        const api = requireViewer();
+        const width = Math.round(viewerContainer.getBoundingClientRect().width);
+        const height = Math.round(viewerContainer.getBoundingClientRect().height);
+
+        if (width <= 0 || height <= 0) {
+            throw new Error('The viewer has no measurable size.');
+        }
+
+        const data = await api.capture(width, height);
+        downloadCapture(data, `capture-${Date.now()}.png`);
+    }
+
+    async function captureSquare() {
+        const data = await requireViewer().capture(DocxionTypes.CaptureAspectRatio.RATIO_1_1);
+        downloadCapture(data, `capture-1-1-${Date.now()}.png`);
+    }
+
+    async function captureLandscape() {
+        const data = await requireViewer().capture(DocxionTypes.CaptureAspectRatio.RATIO_16_9);
+        downloadCapture(data, `capture-16-9-${Date.now()}.png`);
+    }
+
+    async function capturePortrait() {
+        const data = await requireViewer().capture(DocxionTypes.CaptureAspectRatio.RATIO_9_16);
+        downloadCapture(data, `capture-9-16-${Date.now()}.png`);
+    }
+
+    function downloadCapture(data, filename) {
+        const blob = new Blob([data], { type: 'image/png' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+
+        URL.revokeObjectURL(url);
     }
 
     function closeFile() {
@@ -417,6 +467,22 @@
 
     lightButton.addEventListener('click', () => {
         handleAction(setLightTheme);
+    });
+
+    captureButton.addEventListener('click', () => {
+        handleAction(capture);
+    });
+
+    captureSquareButton.addEventListener('click', () => {
+        handleAction(captureSquare);
+    });
+
+    captureLandscapeButton.addEventListener('click', () => {
+        handleAction(captureLandscape);
+    });
+
+    capturePortraitButton.addEventListener('click', () => {
+        handleAction(capturePortrait);
     });
 
     darkButton.addEventListener('click', () => {
