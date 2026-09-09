@@ -49,7 +49,7 @@ jobs:
           git config user.email "github-actions@mjrfusion.com"
 
       - name: Temporarily allow generated assets
-        working-directory: Docxion
+        working-directory: Docxion/Docxion
         run: |
           sed -i '\|src/main/assets/docxion/vendor/|d' .gitignore
           sed -i '\|src/main/assets/docxion/index.umd.js|d' .gitignore
@@ -57,7 +57,7 @@ jobs:
 
       - name: Commit release assets
         run: |
-          git add Docxion/.gitignore
+          git add Docxion/Docxion/.gitignore
 
           git add -f \
             Docxion/Docxion/src/main/assets/docxion/vendor \
@@ -87,7 +87,7 @@ jobs:
             --generate-notes
 
       - name: Restore generated asset exclusions
-        working-directory: Docxion
+        working-directory: Docxion/Docxion
         run: |
           printf '%s\n' \
             'src/main/assets/docxion/vendor/' \

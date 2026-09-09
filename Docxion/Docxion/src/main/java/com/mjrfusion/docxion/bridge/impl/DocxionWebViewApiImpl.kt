@@ -2,8 +2,12 @@ package com.mjrfusion.docxion.bridge.impl
 
 import android.content.Context
 import android.net.Uri
+import android.util.Base64
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import com.mjrfusion.docxion.bridge.CaptureAspectRatio
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
+import com.mjrfusion.docxion.bridge.Theme
 import com.mjrfusion.docxion.ui.DocxionWebView
 import org.json.JSONObject
 import timber.log.Timber
@@ -19,11 +23,26 @@ import java.io.File
  * The API supports opening documents from either an Android [Uri] or
  * an absolute filesystem path.
  *
+ * Capture operations use a dedicated JavaScript callback interface
+ * because [WebView.evaluateJavascript] does not await JavaScript
+ * Promises. The JavaScript host invokes `DocxionCapture.onCapture()`
+ * when the asynchronous capture has completed.
+ *
  * @param webView WebView hosting the Docxion viewer
  */
 internal class DocxionWebViewApiImpl(
     private val webView: WebView
 ) : DocxionWebViewApi {
+
+    private var captureCallback: ((ByteArray) -> Unit)? = null
+    private val captureBridge = CaptureBridge()
+
+    init {
+        webView.addJavascriptInterface(
+            captureBridge,
+            CAPTURE_BRIDGE_NAME
+        )
+    }
 
     private var temporaryFile: File? = null
 
@@ -31,7 +50,7 @@ internal class DocxionWebViewApiImpl(
      * Opens a document from an Android content [Uri].
      *
      * The URI contents are copied into the application's cache directory
-     * before being exposed to the Docxion WebView.
+     * before being registered with the [DocxionWebView].
      *
      * The temporary copy is deleted when another URI is opened or when
      * [destroy] is called.
@@ -60,9 +79,9 @@ internal class DocxionWebViewApiImpl(
     /**
      * Opens a document from an absolute filesystem path.
      *
-     * The local file is registered with [DocxionWebView] and exposed to
-     * JavaScript through the WebView asset loader. JavaScript fetches the
-     * file, creates a browser [File], and passes it to `window.docxionApi`.
+     * The file is registered with [DocxionWebView] and made available to
+     * the JavaScript viewer through the WebView asset loader. The JavaScript
+     * viewer fetches the registered file and opens it in the document viewer.
      *
      * @param file absolute filesystem path of the document
      * @throws IllegalArgumentException if the path is not absolute or
@@ -92,65 +111,11 @@ internal class DocxionWebViewApiImpl(
 
         evaluate(
             $$"""
-        (async () => {
-            try {
-                console.log("Docxion: fetching file", $$encodedUrl);
-
-                const response = await fetch($$encodedUrl);
-
-                console.log(
-                    "Docxion: fetch response",
-                    response.status,
-                    response.statusText,
-                    response.headers.get("content-type")
-                );
-
-                if (!response.ok) {
-                    throw new Error(
-                        `Failed to fetch document: ${response.status} ${response.statusText}`
-                    );
-                }
-
-                const blob = await response.blob();
-
-                console.log(
-                    "Docxion: blob",
-                    blob.size,
-                    blob.type
-                );
-
-                const documentFile = new File(
-                    [blob],
-                    $$encodedFileName,
-                    {
-                        type: blob.type || 'application/octet-stream'
-                    }
-                );
-
-                console.log(
-                    "Docxion: opening file",
-                    documentFile.name,
-                    documentFile.size,
-                    documentFile.type
-                );
-
-                await window.docxionApi.openFile(documentFile);
-
-                console.log("Docxion: openFile completed");
-
-            } catch (error) {
-                console.error(
-                    "Docxion: openFile failed",
-                    error
-                );
-
-                window.DocxionAndroid?.onError(
-                    String(error?.message ?? error),
-                    "OPEN_FILE_ERROR"
-                );
-            }
-        })();
-        """.trimIndent()
+            window.docxionApi.openAndroidFile(
+                $$encodedUrl,
+                $$encodedFileName
+            );
+            """.trimIndent()
         )
     }
 
@@ -161,7 +126,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.closeFile();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -177,7 +142,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.getCurrentFile();
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
             callback(parseString(result))
         }
@@ -192,7 +157,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.goToPage($page);
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -207,7 +172,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.getCurrentPage();
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
             result
                 ?.removeSurrounding("\"")
@@ -227,7 +192,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.getTotalPages();
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
             result
                 ?.removeSurrounding("\"")
@@ -245,7 +210,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.setZoom($zoom);
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -260,7 +225,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.getZoom();
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
             result
                 ?.removeSurrounding("\"")
@@ -280,7 +245,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.zoomIn($argument);
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -295,7 +260,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.zoomOut($argument);
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -306,7 +271,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.fitToWidth();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -317,7 +282,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.fitToPage();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -336,7 +301,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.search($encodedQuery);
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
             callback(result ?: "[]")
         }
@@ -349,7 +314,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.clearSearch();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -360,7 +325,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.goToNextMatch();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -371,7 +336,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.goToPreviousMatch();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
@@ -387,7 +352,7 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.getSelectedText();
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
             callback(parseString(result))
         }
@@ -400,65 +365,143 @@ internal class DocxionWebViewApiImpl(
         evaluate(
             """
             window.docxionApi.clearSelection();
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
     /**
      * Sets the viewer theme.
      *
-     * @param theme either `light` or `dark`
+     * @param theme viewer theme
      */
-    override fun setTheme(theme: String) {
-        require(theme == "light" || theme == "dark")
-
-        val encodedTheme = JSONObject.quote(theme)
+    override fun setTheme(theme: Theme) {
+        val encodedTheme = JSONObject.quote(theme.value)
 
         evaluate(
             """
             window.docxionApi.setTheme($encodedTheme);
-        """.trimIndent()
+            """.trimIndent()
         )
     }
 
     /**
      * Returns the current viewer theme.
      *
-     * @param callback receives `light` or `dark`
+     * @param callback receives the current viewer theme
      */
     override fun getTheme(
-        callback: (String) -> Unit
+        callback: (Theme) -> Unit
     ) {
         evaluate(
             """
             window.docxionApi.getTheme();
-        """.trimIndent()
+            """.trimIndent()
         ) { result ->
-            parseString(result)?.let(callback)
+            parseString(result)
+                ?.let(::parseTheme)
+                ?.let(callback)
         }
     }
 
     /**
+     * Captures the viewer using an explicit width and height.
+     *
+     * The JavaScript host performs the asynchronous capture and invokes
+     * the supplied JavaScript callback after the PNG has been generated.
+     * The callback forwards the Base64-encoded PNG through the dedicated
+     * `DocxionCapture` JavaScript interface.
+     *
+     * The result is therefore not obtained from the return value of
+     * [WebView.evaluateJavascript], since that API does not await the
+     * Promise returned by the JavaScript capture function.
+     *
+     * @param width capture width in pixels
+     * @param height capture height in pixels
+     * @param callback receives the captured PNG bytes
+     */
+    override fun capture(
+        width: Int,
+        height: Int,
+        callback: (ByteArray) -> Unit
+    ) {
+        require(width > 0) {
+            "Capture width must be greater than zero."
+        }
+
+        require(height > 0) {
+            "Capture height must be greater than zero."
+        }
+
+        capture(
+            """
+                window.docxionApi.capture($width, $height);
+            """.trimIndent(),
+            callback
+        )
+    }
+
+    /**
+     * Captures the viewer using the specified height.
+     *
+     * The JavaScript viewer determines the capture width from its
+     * current container width.
+     *
+     * @param height capture height in pixels
+     * @param callback receives the captured PNG bytes
+     */
+    override fun capture(
+        height: Int,
+        callback: (ByteArray) -> Unit
+    ) {
+        require(height > 0) {
+            "Capture height must be greater than zero."
+        }
+
+        capture(
+            """
+                window.docxionApi.capture($height);
+            """.trimIndent(),
+            callback
+        )
+    }
+
+    /**
+     * Captures the viewer using a predefined aspect ratio.
+     *
+     * The JavaScript viewer determines the capture dimensions from
+     * the current viewer container and the supplied aspect ratio.
+     *
+     * @param aspectRatio capture aspect ratio
+     * @param callback receives the captured PNG bytes
+     */
+    override fun capture(
+        aspectRatio: CaptureAspectRatio,
+        callback: (ByteArray) -> Unit
+    ) {
+        val encodedAspectRatio =
+            JSONObject.quote(aspectRatio.value)
+
+        capture(
+            """
+                window.docxionApi.capture($encodedAspectRatio);
+            """.trimIndent(),
+            callback
+        )
+    }
+
+    /**
      * Prints the current document.
+     * For now, it does nothing and can be subject to deprecation.
      */
     override fun print() {
-        evaluate(
-            """
-            window.docxionApi.print();
-        """.trimIndent()
-        )
+        /* No-Op */
     }
 
     /**
      * Destroys the JavaScript viewer and deletes any temporary URI file.
      */
     override fun destroy() {
-        evaluate(
-            """
-            window.docxionApi.destroy();
-        """.trimIndent()
-        )
-
+        evaluate("window.docxionApi.destroy();")
         temporaryFile?.delete()
         temporaryFile = null
     }
@@ -468,18 +511,97 @@ internal class DocxionWebViewApiImpl(
      *
      * @param callback receives true when the viewer is ready
      */
-    override fun isReady(
-        callback: (Boolean) -> Unit
-    ) {
+    override fun isReady(callback: (Boolean) -> Unit) {
         evaluate(
-            """
-            window.docxionApi.isReady();
-        """.trimIndent()
+            "(async () => { return await window.docxionApi.isReady(); })();"
         ) { result ->
-            when (result) {
-                "true" -> callback(true)
-                "false" -> callback(false)
+            callback(result == "true")
+        }
+    }
+
+    /**
+     * Starts an asynchronous viewer capture.
+     *
+     * A dedicated JavaScript interface is installed for this capture and
+     * receives the Base64 result produced by the JavaScript callback.
+     *
+     * The JavaScript interface exists only for the lifetime of this
+     * capture operation and is removed immediately after the result or
+     * an error is received.
+     *
+     * @param script JavaScript capture invocation
+     * @param callback receives the decoded PNG bytes
+     */
+    private fun capture(
+        script: String,
+        callback: (ByteArray) -> Unit
+    ) {
+        check(captureCallback == null) {
+            "A capture operation is already in progress."
+        }
+
+        captureCallback = callback
+
+        evaluate(script, logResult = false)
+    }
+
+    /**
+     * JavaScript interface used exclusively for receiving the result
+     * of an asynchronous viewer capture.
+     *
+     * This bridge is separate from the normal Docxion Android callback
+     * bridge because capture is an API result rather than a viewer
+     * callback event.
+     *
+     */
+    private inner class CaptureBridge {
+
+        /**
+         * Receives the Base64-encoded PNG produced by the JavaScript
+         * capture operation.
+         *
+         * The JavaScript host calls this method after
+         * `window.docxionApi.capture()` has completed.
+         *
+         * @param base64 Base64-encoded PNG data
+         */
+        @JavascriptInterface
+        fun onCapture(base64: String) {
+            val bytes = try {
+                Base64.decode(
+                    base64,
+                    Base64.DEFAULT
+                )
+            } catch (exception: IllegalArgumentException) {
+                Timber.e(
+                    exception,
+                    "Failed to decode Docxion capture"
+                )
+                return
             }
+
+            webView.post {
+                val callback = captureCallback
+                captureCallback = null
+                callback?.invoke(bytes)
+            }
+        }
+
+        /**
+         * Receives an error produced while performing the capture.
+         *
+         * @param error JavaScript error message
+         */
+        @JavascriptInterface
+        fun onError(error: String) {
+            webView.post {
+                webView.removeJavascriptInterface(CAPTURE_BRIDGE_NAME)
+            }
+
+            Timber.e(
+                "Docxion capture failed: %s",
+                error
+            )
         }
     }
 
@@ -508,37 +630,69 @@ internal class DocxionWebViewApiImpl(
     }
 
     /**
-     * Evaluates JavaScript on the WebView thread.
+     * Parses a viewer [Theme] returned by JavaScript.
+     */
+    private fun parseTheme(
+        value: String
+    ): Theme? {
+        return Theme.entries.firstOrNull {
+            it.value == value
+        }
+    }
+
+    /**
+     * Evaluates JavaScript on the WebView.
+     *
+     * @param script JavaScript source to evaluate
+     * @param logResult whether the JavaScript result should be logged
+     * @param callback optional callback receiving the JavaScript result
      */
     private fun evaluate(
         script: String,
+        logResult: Boolean = true,
         callback: ((String?) -> Unit)? = null
     ) {
         Timber.d("JS <- %s", script)
 
         webView.post {
             webView.evaluateJavascript(script) { result ->
-                Timber.d("JS -> %s", result)
+                if (logResult) {
+                    Timber.d("JS -> %s", result)
+                }
+
                 callback?.invoke(result)
             }
         }
     }
 
     /**
-     * Parses a JavaScript string result returned by [WebView.evaluateJavascript].
+     * Parses a JavaScript string result returned by
+     * [WebView.evaluateJavascript].
      */
     private fun parseString(
         value: String?
     ): String? {
+        Timber.d("Data: $value")
         if (value == null || value == "null") {
+            Timber.w("Failed to parse JS String, it's null")
             return null
         }
 
         return try {
             JSONObject("""{"value":$value}""")
                 .optString("value", "")
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            Timber.e(e)
             value.removeSurrounding("\"")
         }
+    }
+
+    private companion object {
+
+        /**
+         * Name of the temporary JavaScript interface used by
+         * asynchronous viewer capture operations.
+         */
+        const val CAPTURE_BRIDGE_NAME = "DocxionCapture"
     }
 }

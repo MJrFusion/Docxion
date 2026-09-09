@@ -19,7 +19,8 @@
     "@file-viewer/renderer-presentation": "^2.4.0",
     "@file-viewer/renderer-spreadsheet": "^2.4.0",
     "@file-viewer/renderer-word": "^2.4.0",
-    "@file-viewer/web": "^2.4.0"
+    "@file-viewer/web": "^2.4.0",
+    "@zumer/snapdom": "^2.24.17"
   },
   "devDependencies": {
     "@file-viewer/vite-plugin": "^2.4.0",

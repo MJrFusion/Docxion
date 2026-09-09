@@ -1,4 +1,5 @@
 import { mountViewer } from '../index';
+import { CaptureAspectRatio, Theme } from '../types/core';
 import type { ViewerAPI, ViewerOptions } from '../types/core';
 
 function requireElement<T extends HTMLElement>(selector: string): T {
@@ -12,25 +13,42 @@ function requireElement<T extends HTMLElement>(selector: string): T {
 const filePicker = requireElement<HTMLInputElement>('#file-picker');
 const fileName = requireElement<HTMLElement>('#file-name');
 const viewerContainer = requireElement<HTMLElement>('#viewer');
+
 const openButton = requireElement<HTMLButtonElement>('#open');
 const previousButton = requireElement<HTMLButtonElement>('#previous');
 const nextButton = requireElement<HTMLButtonElement>('#next');
+
 const zoomOutButton = requireElement<HTMLButtonElement>('#zoom-out');
 const zoomInButton = requireElement<HTMLButtonElement>('#zoom-in');
 const fitWidthButton = requireElement<HTMLButtonElement>('#fit-width');
 const fitPageButton = requireElement<HTMLButtonElement>('#fit-page');
+
 const searchInput = requireElement<HTMLInputElement>('#search-input');
 const searchButton = requireElement<HTMLButtonElement>('#search');
 const previousMatchButton = requireElement<HTMLButtonElement>('#previous-match');
 const nextMatchButton = requireElement<HTMLButtonElement>('#next-match');
 const clearSearchButton = requireElement<HTMLButtonElement>('#clear-search');
+
 const printButton = requireElement<HTMLButtonElement>('#print');
+
 const lightButton = requireElement<HTMLButtonElement>('#light');
 const darkButton = requireElement<HTMLButtonElement>('#dark');
+
 const closeButton = requireElement<HTMLButtonElement>('#close');
 const destroyButton = requireElement<HTMLButtonElement>('#destroy');
 
+const captureSizeButton = requireElement<HTMLButtonElement>('#capture-size');
+const captureHeightButton = requireElement<HTMLButtonElement>('#capture-height');
+
+const capture11Button = requireElement<HTMLButtonElement>('#capture-1-1');
+const capture169Button = requireElement<HTMLButtonElement>('#capture-16-9');
+const capture916Button = requireElement<HTMLButtonElement>('#capture-9-16');
+const capture43Button = requireElement<HTMLButtonElement>('#capture-4-3');
+const capture34Button = requireElement<HTMLButtonElement>('#capture-3-4');
+const capture32Button = requireElement<HTMLButtonElement>('#capture-3-2');
+
 let viewer: ViewerAPI | null = null;
+
 const baseUrl = new URL('/', window.location.href);
 
 function requireViewer(): ViewerAPI {
@@ -40,24 +58,127 @@ function requireViewer(): ViewerAPI {
     return viewer;
 }
 
+function setStatus(message: string): void {
+    const status = document.querySelector<HTMLOutputElement>('#status');
+    if (status) {
+        status.value = message;
+    }
+    console.log(`[Status] ${message}`);
+}
+
+function downloadCapture(bytes: Uint8Array, filename: string): void {
+    const buffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buffer).set(bytes);
+
+    const blob = new Blob([buffer], { type: 'image/png' });
+    const url = URL.createObjectURL(blob);
+
+    try {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+async function captureWithDimensions(): Promise<void> {
+    const api = requireViewer();
+    const widthInput = window.prompt('Capture width:', '1280');
+    if (widthInput === null) {
+        return;
+    }
+    const heightInput = window.prompt('Capture height:', '720');
+    if (heightInput === null) {
+        return;
+    }
+    const width = Number(widthInput);
+    const height = Number(heightInput);
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        setStatus('Invalid capture dimensions.');
+        return;
+    }
+    try {
+        setStatus(`Capturing ${width}×${height}...`);
+        const bytes = await api.capture(width, height);
+        downloadCapture(bytes, `docxion-capture-${width}x${height}.png`);
+        setStatus(`Captured ${width}×${height} PNG.`);
+    } catch (error) {
+        console.error('Capture failed:', error);
+        setStatus(`Capture failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+async function captureWithHeight(): Promise<void> {
+    const api = requireViewer();
+    const heightInput = window.prompt('Capture height:', '720');
+    if (heightInput === null) {
+        return;
+    }
+    const height = Number(heightInput);
+    if (!Number.isFinite(height) || height <= 0) {
+        setStatus('Invalid capture height.');
+        return;
+    }
+    try {
+        setStatus(`Capturing viewer at height ${height}...`);
+        const bytes = await api.capture(height);
+        downloadCapture(bytes, `docxion-capture-height-${height}.png`);
+        setStatus(`Captured viewer at height ${height}.`);
+    } catch (error) {
+        console.error('Capture failed:', error);
+        setStatus(`Capture failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+async function captureWithAspectRatio(aspectRatio: CaptureAspectRatio): Promise<void> {
+    const api = requireViewer();
+    try {
+        setStatus(`Capturing ${aspectRatio}...`);
+        const bytes = await api.capture(aspectRatio);
+        const filenameRatio = aspectRatio.replace(':', 'x');
+        downloadCapture(bytes, `docxion-capture-${filenameRatio}.png`);
+        setStatus(`Captured ${aspectRatio} PNG.`);
+    } catch (error) {
+        console.error(`Capture ${aspectRatio} failed:`, error);
+        setStatus(`Capture failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
 function updateControls(): void {
     const disabled = viewer === null;
 
     previousButton.disabled = disabled;
     nextButton.disabled = disabled;
+
     zoomOutButton.disabled = disabled;
     zoomInButton.disabled = disabled;
     fitWidthButton.disabled = disabled;
     fitPageButton.disabled = disabled;
+
     searchButton.disabled = disabled;
     previousMatchButton.disabled = disabled;
     nextMatchButton.disabled = disabled;
     clearSearchButton.disabled = disabled;
+
     printButton.disabled = disabled;
+
     lightButton.disabled = disabled;
     darkButton.disabled = disabled;
+
     closeButton.disabled = disabled;
     destroyButton.disabled = disabled;
+
+    captureSizeButton.disabled = disabled;
+    captureHeightButton.disabled = disabled;
+
+    capture11Button.disabled = disabled;
+    capture169Button.disabled = disabled;
+    capture916Button.disabled = disabled;
+    capture43Button.disabled = disabled;
+    capture34Button.disabled = disabled;
+    capture32Button.disabled = disabled;
 }
 
 async function loadFile(file: File): Promise<void> {
@@ -69,7 +190,7 @@ async function loadFile(file: File): Promise<void> {
 
     const options: ViewerOptions = {
         file,
-        theme: 'light',
+        theme: Theme.LIGHT,
         search: {
             maxMatches: 1000,
             caseSensitive: false,
@@ -82,31 +203,20 @@ async function loadFile(file: File): Promise<void> {
             log(message: string): void {
                 console.log('[Bridge] log:', message);
             },
-
             onPageChanged(page: number, totalPages: number): void {
-                console.log('[Bridge] Page changed:', {
-                    page,
-                    totalPages,
-                });
+                console.log('[Bridge] Page changed:', { page, totalPages });
             },
-
             onZoomChanged(zoom: number): void {
                 console.log('[Bridge] Zoom changed:', zoom);
             },
-
             onTextSelected(selection): void {
                 console.log('[Bridge] Selection:', selection);
             },
-
             onReady(timestamp: number): void {
                 console.log('[Bridge] Ready:', timestamp);
             },
-
             onError(message: string, code?: string): void {
-                console.error('[Bridge] Error:', {
-                    message,
-                    code,
-                });
+                console.error('[Bridge] Error:', { message, code });
             },
         },
     };
@@ -130,7 +240,6 @@ async function openSelectedFile(): Promise<void> {
 async function previousPage(): Promise<void> {
     const api = requireViewer();
     const page = api.getCurrentPage();
-
     if (page > 1) {
         await api.goToPage(page - 1);
     }
@@ -140,7 +249,6 @@ async function nextPage(): Promise<void> {
     const api = requireViewer();
     const page = api.getCurrentPage();
     const totalPages = api.getTotalPages();
-
     if (page > 0 && page < totalPages) {
         await api.goToPage(page + 1);
     }
@@ -165,16 +273,12 @@ async function fitPage(): Promise<void> {
 async function search(): Promise<void> {
     const api = requireViewer();
     const query = searchInput.value.trim();
-
     if (!query) {
         return;
     }
-
     try {
         const results = await api.search(query);
-
         console.log('Search results:', results);
-
         if (results.length > 0) {
             await api.goToNextMatch();
         }
@@ -202,11 +306,11 @@ function print(): void {
 }
 
 function setLightTheme(): void {
-    requireViewer().setTheme('light');
+    requireViewer().setTheme(Theme.LIGHT);
 }
 
 function setDarkTheme(): void {
-    requireViewer().setTheme('dark');
+    requireViewer().setTheme(Theme.DARK);
 }
 
 function closeFile(): void {
@@ -218,14 +322,12 @@ function destroyViewer(): void {
     if (!viewer) {
         return;
     }
-
     viewer.destroy();
     viewer = null;
     viewerContainer.replaceChildren();
     fileName.textContent = 'No document selected';
     searchInput.value = '';
     updateControls();
-
     console.log('Viewer destroyed.');
 }
 
@@ -239,11 +341,9 @@ function handleAction(action: () => void | Promise<void>): void {
 
 filePicker.addEventListener('change', (): void => {
     const file = filePicker.files?.[0];
-
     if (!file) {
         return;
     }
-
     handleAction(() => loadFile(file));
 });
 
@@ -295,7 +395,6 @@ searchInput.addEventListener('keydown', (event: KeyboardEvent): void => {
     if (event.key !== 'Enter') {
         return;
     }
-
     event.preventDefault();
     handleAction(search);
 });
@@ -320,10 +419,41 @@ destroyButton.addEventListener('click', (): void => {
     handleAction(destroyViewer);
 });
 
+captureSizeButton.addEventListener('click', (): void => {
+    handleAction(captureWithDimensions);
+});
+
+captureHeightButton.addEventListener('click', (): void => {
+    handleAction(captureWithHeight);
+});
+
+capture11Button.addEventListener('click', (): void => {
+    handleAction(() => captureWithAspectRatio(CaptureAspectRatio.RATIO_1_1));
+});
+
+capture169Button.addEventListener('click', (): void => {
+    handleAction(() => captureWithAspectRatio(CaptureAspectRatio.RATIO_16_9));
+});
+
+capture916Button.addEventListener('click', (): void => {
+    handleAction(() => captureWithAspectRatio(CaptureAspectRatio.RATIO_9_16));
+});
+
+capture43Button.addEventListener('click', (): void => {
+    handleAction(() => captureWithAspectRatio(CaptureAspectRatio.RATIO_4_3));
+});
+
+capture34Button.addEventListener('click', (): void => {
+    handleAction(() => captureWithAspectRatio(CaptureAspectRatio.RATIO_3_4));
+});
+
+capture32Button.addEventListener('click', (): void => {
+    handleAction(() => captureWithAspectRatio(CaptureAspectRatio.RATIO_3_2));
+});
+
 document.addEventListener('selectionchange', (): void => {
     requestAnimationFrame(() => {
         const selection = window.getSelection();
-
         console.log('[Native Selection]', {
             text: selection?.toString(),
             type: selection?.type,
@@ -334,10 +464,8 @@ document.addEventListener('selectionchange', (): void => {
             focusNode: selection?.focusNode,
             focusOffset: selection?.focusOffset,
         });
-
         if (selection && selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
-
             console.log('[Native Range]', {
                 text: range.toString(),
                 collapsed: range.collapsed,
@@ -351,15 +479,14 @@ document.addEventListener('selectionchange', (): void => {
     });
 });
 
-document.addEventListener('mouseup', e => {
-    const range = document.caretRangeFromPoint(e.clientX, e.clientY);
-
+document.addEventListener('mouseup', (event) => {
+    const range = document.caretRangeFromPoint(event.clientX, event.clientY);
     console.log({
-        x: e.clientX,
-        y: e.clientY,
+        x: event.clientX,
+        y: event.clientY,
         node: range?.startContainer,
         offset: range?.startOffset,
-        text: range?.startContainer?.textContent
+        text: range?.startContainer?.textContent,
     });
 });
 
@@ -367,11 +494,8 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
     if (!viewer) {
         return;
     }
-
     const target = event.target as HTMLElement | null;
-    const isInput = target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable;
+    const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
     const modifier = event.ctrlKey || event.metaKey;
 
     if (modifier && (event.key === '=' || event.key === '+')) {
@@ -379,39 +503,32 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
         handleAction(zoomIn);
         return;
     }
-
     if (modifier && event.key === '-') {
         event.preventDefault();
         handleAction(zoomOut);
         return;
     }
-
     if (modifier && event.key === '0') {
         event.preventDefault();
         handleAction(fitWidth);
         return;
     }
-
     if (isInput) {
         return;
     }
-
     if (event.key === 'ArrowLeft') {
         event.preventDefault();
         handleAction(previousPage);
         return;
     }
-
     if (event.key === 'ArrowRight') {
         event.preventDefault();
         handleAction(nextPage);
         return;
     }
-
     if (modifier && event.key.toLowerCase() === 'f') {
         event.preventDefault();
         searchInput.focus();
-        return;
     }
 });
 
@@ -434,13 +551,21 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
         print(): void;
         light(): void;
         dark(): void;
+        capture(width: number, height: number): Promise<void>;
+        captureHeight(height: number): Promise<void>;
+        captureRatio(aspectRatio: CaptureAspectRatio): Promise<void>;
+        capture11(): Promise<void>;
+        capture169(): Promise<void>;
+        capture916(): Promise<void>;
+        capture43(): Promise<void>;
+        capture34(): Promise<void>;
+        capture32(): Promise<void>;
         close(): void;
         destroy(): void;
     };
 }).viewerDev = {
     state(): void {
         const api = requireViewer();
-
         console.log('Viewer:', {
             ready: api.isReady(),
             file: api.getCurrentFile(),
@@ -501,11 +626,51 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
     },
 
     light(): void {
-        requireViewer().setTheme('light');
+        requireViewer().setTheme(Theme.LIGHT);
     },
 
     dark(): void {
-        requireViewer().setTheme('dark');
+        requireViewer().setTheme(Theme.DARK);
+    },
+
+    async capture(width: number, height: number): Promise<void> {
+        const bytes = await requireViewer().capture(width, height);
+        downloadCapture(bytes, `docxion-capture-${width}x${height}.png`);
+    },
+
+    async captureHeight(height: number): Promise<void> {
+        const bytes = await requireViewer().capture(height);
+        downloadCapture(bytes, `docxion-capture-height-${height}.png`);
+    },
+
+    async captureRatio(aspectRatio: CaptureAspectRatio): Promise<void> {
+        const bytes = await requireViewer().capture(aspectRatio);
+        const filenameRatio = aspectRatio.replace(':', 'x');
+        downloadCapture(bytes, `docxion-capture-${filenameRatio}.png`);
+    },
+
+    async capture11(): Promise<void> {
+        await this.captureRatio(CaptureAspectRatio.RATIO_1_1);
+    },
+
+    async capture169(): Promise<void> {
+        await this.captureRatio(CaptureAspectRatio.RATIO_16_9);
+    },
+
+    async capture916(): Promise<void> {
+        await this.captureRatio(CaptureAspectRatio.RATIO_9_16);
+    },
+
+    async capture43(): Promise<void> {
+        await this.captureRatio(CaptureAspectRatio.RATIO_4_3);
+    },
+
+    async capture34(): Promise<void> {
+        await this.captureRatio(CaptureAspectRatio.RATIO_3_4);
+    },
+
+    async capture32(): Promise<void> {
+        await this.captureRatio(CaptureAspectRatio.RATIO_3_2);
     },
 
     close(): void {
@@ -519,27 +684,37 @@ document.addEventListener('keydown', (event: KeyboardEvent): void => {
 
 updateControls();
 
-console.log([
-    'Vaultar viewer development harness ready.',
-    '',
-    'Use the development toolbar to control the viewer.',
-    '',
-    'Console API is also available:',
-    '  __viewer',
-    '  viewerDev.state()',
-    '  viewerDev.page(2)',
-    '  viewerDev.zoom(1.5)',
-    '  viewerDev.zoomIn()',
-    '  viewerDev.zoomOut()',
-    '  viewerDev.fitWidth()',
-    '  viewerDev.fitPage()',
-    '  viewerDev.search("text")',
-    '  viewerDev.nextMatch()',
-    '  viewerDev.previousMatch()',
-    '  viewerDev.clearSearch()',
-    '  viewerDev.print()',
-    '  viewerDev.light()',
-    '  viewerDev.dark()',
-    '  viewerDev.close()',
-    '  viewerDev.destroy()',
-].join('\n'));
+console.log(
+    [
+        'Vaultar viewer development harness ready.',
+        '',
+        'Use the development toolbar to control the viewer.',
+        '',
+        'Console API is also available:',
+        '  __viewer',
+        '  viewerDev.state()',
+        '  viewerDev.page(2)',
+        '  viewerDev.zoom(1.5)',
+        '  viewerDev.zoomIn()',
+        '  viewerDev.zoomOut()',
+        '  viewerDev.fitWidth()',
+        '  viewerDev.fitPage()',
+        '  viewerDev.search("text")',
+        '  viewerDev.nextMatch()',
+        '  viewerDev.previousMatch()',
+        '  viewerDev.clearSearch()',
+        '  viewerDev.print()',
+        '  viewerDev.light()',
+        '  viewerDev.dark()',
+        '  viewerDev.capture(1280, 720)',
+        '  viewerDev.captureHeight(720)',
+        '  viewerDev.capture11()',
+        '  viewerDev.capture169()',
+        '  viewerDev.capture916()',
+        '  viewerDev.capture43()',
+        '  viewerDev.capture34()',
+        '  viewerDev.capture32()',
+        '  viewerDev.close()',
+        '  viewerDev.destroy()',
+    ].join('\n')
+);

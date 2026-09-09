@@ -39,6 +39,55 @@
     let viewer = null;
 
     /**
+     * Opens an Android-registered document.
+     *
+     * The Android host registers the local file with the WebView asset loader
+     * and passes the resulting asset URL and original file name to this
+     * function. The document is fetched, converted into a browser [File],
+     * and then passed to the underlying viewer API.
+     *
+     * This function is an Android/WebView bridge helper and is not part of
+     * the public [ViewerAPI].
+     *
+     * @param {string} fileUrl URL of the document registered by Android
+     * @param {string} fileName original document file name
+     * @returns {Promise<void>} resolves when the document has been opened
+     */
+    async function openAndroidFile(fileUrl, fileName) {
+        try {
+            const response = await fetch(fileUrl);
+
+            if (!response.ok) {
+                throw new Error(
+                    `Failed to fetch document: ${response.status} ${response.statusText}`
+                );
+            }
+
+            const blob = await response.blob();
+
+            const file = new File(
+                [blob],
+                fileName,
+                {
+                    type: blob.type || 'application/octet-stream',
+                }
+            );
+
+            await requireViewer().openFile(file);
+        } catch (error) {
+            console.error(
+                'Docxion: openFile failed',
+                error
+            );
+
+            window.DocxionAndroid?.onError(
+                String(error?.message ?? error),
+                'OPEN_FILE_ERROR'
+            );
+        }
+    }
+
+    /**
      * DOM element hosting the Docxion viewer.
      */
     const viewerContainer = document.getElementById('viewer');
@@ -61,7 +110,10 @@
      * @param {string|null} code optional error code
      */
     function reportError(message, code = null) {
-        window.DocxionAndroid?.onError(String(message), code == null ? null : String(code));
+        window.DocxionAndroid?.onError(
+            String(message),
+            code == null ? null : String(code)
+        );
     }
 
     /**
@@ -69,10 +121,16 @@
      */
     function updateViewportHeight() {
         const height = window.innerHeight;
+
         document.documentElement.style.height = `${height}px`;
         document.body.style.height = `${height}px`;
         viewerContainer.style.height = `${height}px`;
-        log(`Viewport height applied: ${height}, body=${document.body.clientHeight}, viewer=${viewerContainer.clientHeight}`);
+
+        log(
+            `Viewport height applied: ${height}, ` +
+            `body=${document.body.clientHeight}, ` +
+            `viewer=${viewerContainer.clientHeight}`
+        );
     }
 
     updateViewportHeight();
@@ -88,8 +146,97 @@
         if (!viewer) {
             throw new Error('Docxion viewer is not initialized.');
         }
+
         return viewer;
     }
+
+    /**
+     * Returns the public Docxion runtime types.
+     *
+     * These are exposed by the TypeScript bundle under
+     * `window.Docxion.types`.
+     *
+     * @throws {Error} if the runtime types are not available
+     */
+    function requireTypes() {
+        if (!window.Docxion?.types) {
+            throw new Error('Docxion runtime types are not available.');
+        }
+
+        return window.Docxion.types;
+    }
+
+    /**
+     * Converts a Uint8Array into a Base64 string.
+     *
+     * The conversion is performed entirely inside JavaScript so that
+     * the Android-facing API only has to transport a string through
+     * the WebView JavaScript bridge.
+     *
+     * The conversion is performed in chunks to avoid exceeding the
+     * JavaScript argument limit of String.fromCharCode().
+     *
+     * @param {Uint8Array} bytes binary data
+     * @returns {string} Base64 encoded data
+     */
+    function uint8ArrayToBase64(bytes) {
+        let binary = '';
+
+        const chunkSize = 0x8000;
+
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+            const chunk = bytes.subarray(
+                offset,
+                Math.min(offset + chunkSize, bytes.length)
+            );
+
+            binary += String.fromCharCode(...chunk);
+        }
+
+        return btoa(binary);
+    }
+
+    /**
+    * Captures the rendered viewer as a PNG and optionally invokes a callback
+    * with the resulting image encoded as a Base64 string.
+    *
+    * The second parameter is the optional capture height used by the
+    * underlying ViewerAPI overloads (`capture(width, height)` vs `capture(height)`).
+    * When running inside Android, the Base64 result is forwarded to `DocxionCapture`.
+    *
+    * Supported forms:
+    * * `capture(width, height, callback)`
+    * * `capture(height, callback)`
+    * * `capture(aspectRatio, callback)`
+    * * `capture(width, height)`
+    * * `capture(height)`
+    * * `capture(aspectRatio)`
+    *
+    * @param {number|string} value
+    * Width, height, or aspect ratio passed to the underlying viewer capture API.
+    *
+    * @param {number|Function|undefined} heightOrCallback
+    * Capture height.
+    *
+    * @returns {Promise<string>}
+    * A Promise resolving to the captured PNG encoded as a Base64 string.
+    */
+    async function capture(value, height = undefined) {
+        try {
+            const data = await requireViewer().capture(value, height);
+            const base64 = uint8ArrayToBase64(data);
+
+            window.DocxionCapture?.onCapture?.(base64);
+
+            return base64;
+        } catch (error) {
+            console.error(error);
+            window.DocxionCapture.onError(
+                String(error?.message ?? error)
+            );
+        }
+    }
+
 
     /**
      * Creates the AndroidCallbacks adapter consumed by the
@@ -122,7 +269,10 @@
              * @param {number} totalPages total number of pages
              */
             onPageChanged(page, totalPages) {
-                window.DocxionAndroid?.onPageChanged(Number(page), Number(totalPages));
+                window.DocxionAndroid?.onPageChanged(
+                    Number(page),
+                    Number(totalPages)
+                );
             },
 
             /**
@@ -149,7 +299,11 @@
              * or null when there is no active selection
              */
             onTextSelected(selection) {
-                window.DocxionAndroid?.onTextSelected(selection == null ? null : JSON.stringify(selection));
+                window.DocxionAndroid?.onTextSelected(
+                    selection == null
+                        ? null
+                        : JSON.stringify(selection)
+                );
             },
 
             /**
@@ -168,7 +322,10 @@
              * @param {string|null} code optional error code
              */
             onError(message, code) {
-                window.DocxionAndroid?.onError(String(message), code == null ? null : String(code));
+                window.DocxionAndroid?.onError(
+                    String(message),
+                    code == null ? null : String(code)
+                );
             }
         };
     }
@@ -181,31 +338,44 @@
      * the Android callback adapter.
      *
      * @param {File|string|undefined} file initial document
-     * @param {'light'|'dark'} theme initial viewer theme
+     * @param {string} theme initial viewer theme
      * @returns {Promise<boolean>} true when mounting succeeds
      */
-    async function mount(file = undefined, theme = 'light') {
-        if (!window.Docxion || typeof window.Docxion.mountViewer !== 'function') {
+    async function mount(file = undefined, theme = undefined) {
+        if (!window.Docxion ||
+            typeof window.Docxion.mountViewer !== 'function') {
             throw new Error('Docxion.mountViewer() is not available.');
         }
+
+        const types = requireTypes();
+
         if (viewer) {
             viewer.destroy();
             viewer = null;
         }
+
         viewerContainer.replaceChildren();
+
+        const initialTheme = theme ?? types.Theme.LIGHT;
 
         viewer = await window.Docxion.mountViewer(
             viewerContainer,
             {
                 file,
-                theme,
+                theme: initialTheme,
                 search: {
                     maxMatches: 1000,
                     caseSensitive: false
                 },
                 presentation: {
-                    pptWorkerUrl: new URL('./vendor/ppt/worker.mjs', window.location.href).toString(),
-                    pptxWorkerUrl: new URL('./vendor/pptx/pptx.worker.js', window.location.href).toString()
+                    pptWorkerUrl: new URL(
+                        './vendor/ppt/worker.mjs',
+                        window.location.href
+                    ).toString(),
+                    pptxWorkerUrl: new URL(
+                        './vendor/pptx/pptx.worker.js',
+                        window.location.href
+                    ).toString()
                 },
                 androidBridge: createAndroidBridge()
             }
@@ -225,10 +395,12 @@
         /**
          * Opens a document.
          */
-        openFile(file) {
-            return requireViewer().openFile(file);
+        openAndroidFile(fileUrl, fileName) {
+            return openAndroidFile(
+                fileUrl,
+                fileName
+            );
         },
-
         /**
          * Closes the current document.
          */
@@ -350,6 +522,8 @@
 
         /**
          * Sets the viewer theme.
+         *
+         * @param {string} theme value from `Docxion.types.Theme`
          */
         setTheme(theme) {
             requireViewer().setTheme(theme);
@@ -360,6 +534,34 @@
          */
         getTheme() {
             return requireViewer().getTheme();
+        },
+
+        /**
+         * Captures the rendered viewer at the requested dimensions.
+         *
+         * Supported overloads:
+         *
+         *     capture(width, height)
+         *     capture(height)
+         *     capture(aspectRatio)
+         *
+         * The underlying ViewerAPI returns Uint8Array data.
+         * The host shell converts that data to Base64 so the Android
+         * WebView API can receive it through evaluateJavascript().
+         *
+         * @param {number|string} widthOrHeightOrAspectRatio
+         * width, height, or a value from
+         * `Docxion.types.CaptureAspectRatio`
+         *
+         * @param {number|undefined} height output height
+         *
+         * @returns {Promise<string>} Base64 encoded PNG data
+         */
+        capture(widthOrHeightOrAspectRatio, height = undefined) {
+            return capture(
+                widthOrHeightOrAspectRatio,
+                height
+            );
         },
 
         /**
@@ -376,6 +578,7 @@
             if (!viewer) {
                 return;
             }
+
             viewer.destroy();
             viewer = null;
             viewerContainer.replaceChildren();
