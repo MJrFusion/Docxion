@@ -34,6 +34,8 @@ import com.mjrfusion.docxion.bridge.CaptureAspectRatio
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
 import com.mjrfusion.docxion.bridge.Theme
 import com.mjrfusion.docxion.callback.DocxionCallbacks
+import com.mjrfusion.docxion.callback.PaginationCallbacks
+import com.mjrfusion.docxion.callback.SelectionCallbacks
 import com.mjrfusion.docxion.example.ui.theme.ExampleTheme
 import com.mjrfusion.docxion.model.TextSelection
 import com.mjrfusion.docxion.ui.compose.DocxionViewer
@@ -91,7 +93,7 @@ class MainActivity : ComponentActivity() {
         var api by remember { mutableStateOf<DocxionWebViewApi?>(null) }
 
         val callbacks = remember {
-            object : DocxionCallbacks {
+            object : DocxionCallbacks, PaginationCallbacks, SelectionCallbacks {
                 override fun log(message: String) {
                     Timber.d(message)
                 }
