@@ -6,7 +6,11 @@ import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import com.mjrfusion.docxion.bridge.CaptureAspectRatio
+import com.mjrfusion.docxion.bridge.DocumentCapabilities
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
+import com.mjrfusion.docxion.bridge.PaginatedDocumentApi
+import com.mjrfusion.docxion.bridge.SearchableDocumentApi
+import com.mjrfusion.docxion.bridge.SelectableDocumentApi
 import com.mjrfusion.docxion.bridge.Theme
 import com.mjrfusion.docxion.ui.DocxionWebView
 import org.json.JSONObject
@@ -32,10 +36,22 @@ import java.io.File
  */
 internal class DocxionWebViewApiImpl(
     private val webView: WebView
-) : DocxionWebViewApi {
+) : DocxionWebViewApi,
+    PaginatedDocumentApi,
+    SearchableDocumentApi,
+    SelectableDocumentApi {
 
     private var captureCallback: ((ByteArray) -> Unit)? = null
     private val captureBridge = CaptureBridge()
+
+    /**
+     * Capabilities of the currently loaded document.
+     *
+     * Updated synchronously by [openFile] from the file name, and
+     * cleared by [closeFile]. Reported as [DocumentCapabilities.None]
+     * before any document is opened.
+     */
+    private var documentCapabilities: DocumentCapabilities = DocumentCapabilities.None
 
     init {
         webView.addJavascriptInterface(
@@ -45,6 +61,20 @@ internal class DocxionWebViewApiImpl(
     }
 
     private var temporaryFile: File? = null
+
+    /**
+     * Returns the capabilities of the currently loaded document.
+     *
+     * The snapshot is resolved synchronously from the file name passed
+     * to [openFile] and cached until the next [openFile] or
+     * [closeFile] call. Before any document is opened, all capabilities
+     * are reported as false.
+     *
+     * @param callback receives the capability snapshot.
+     */
+    override fun getDocumentCapabilities(callback: (DocumentCapabilities) -> Unit) {
+        callback(documentCapabilities)
+    }
 
     /**
      * Opens a document from an Android content [Uri].
@@ -98,6 +128,8 @@ internal class DocxionWebViewApiImpl(
             "Docxion file does not exist: $file"
         }
 
+        documentCapabilities = DocumentCapabilities.fromFileName(path.name)
+
         val docxionWebView = webView as? DocxionWebView
             ?: error("DocxionWebViewApi requires a DocxionWebView")
 
@@ -123,6 +155,8 @@ internal class DocxionWebViewApiImpl(
      * Closes the currently opened document.
      */
     override fun closeFile() {
+        documentCapabilities = DocumentCapabilities.None
+
         evaluate(
             """
             window.docxionApi.closeFile();

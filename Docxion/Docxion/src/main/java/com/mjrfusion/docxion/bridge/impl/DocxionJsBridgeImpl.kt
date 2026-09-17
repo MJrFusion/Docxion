@@ -1,7 +1,7 @@
 package com.mjrfusion.docxion.bridge.impl
 
 import android.webkit.JavascriptInterface
-import com.mjrfusion.docxion.bridge.DocxionJsBridge
+import com.mjrfusion.docxion.bridge.internal.DocxionJsBridge
 import com.mjrfusion.docxion.callback.DocxionCallbacks
 import com.mjrfusion.docxion.callback.PaginationCallbacks
 import com.mjrfusion.docxion.callback.SelectionCallbacks

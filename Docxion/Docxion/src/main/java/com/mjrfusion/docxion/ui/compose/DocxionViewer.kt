@@ -31,14 +31,15 @@ fun DocxionViewer(
 
     AndroidView(
         modifier = modifier,
-
         factory = { context ->
             DocxionWebView(context).apply {
                 currentCallbacks.value?.let(::setCallbacks)
                 currentOnApiCreated.value(webApi)
-
                 loadDocxion()
             }
+        },
+        update = { webView ->
+            currentCallbacks.value?.let(webView::setCallbacks)
         }
     )
 }

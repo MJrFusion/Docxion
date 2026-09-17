@@ -31,7 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mjrfusion.docxion.bridge.CaptureAspectRatio
+import com.mjrfusion.docxion.bridge.DocumentCapabilities
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
+import com.mjrfusion.docxion.bridge.PaginatedDocumentApi
+import com.mjrfusion.docxion.bridge.SearchableDocumentApi
+import com.mjrfusion.docxion.bridge.SelectableDocumentApi
 import com.mjrfusion.docxion.bridge.Theme
 import com.mjrfusion.docxion.callback.DocxionCallbacks
 import com.mjrfusion.docxion.callback.PaginationCallbacks
@@ -91,6 +95,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun DocxionExampleScreen() {
         var api by remember { mutableStateOf<DocxionWebViewApi?>(null) }
+        var capabilities by remember { mutableStateOf(DocumentCapabilities.None) }
 
         val callbacks = remember {
             object : DocxionCallbacks, PaginationCallbacks, SelectionCallbacks {
@@ -126,13 +131,27 @@ class MainActivity : ComponentActivity() {
             uri?.let {
                 Timber.d("Opening file: $it")
                 api?.openFile(it)
+                api?.getDocumentCapabilities { loaded ->
+                    Timber.d(
+                        "Capabilities: paginated=${loaded.isPaginated}, " +
+                                "searchable=${loaded.isSearchable}, " +
+                                "selectable=${loaded.isSelectable}"
+                    )
+                    capabilities = loaded
+                }
             }
         }
 
         Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
-            Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
                 DocxionViewer(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     callbacks = callbacks,
                     onApiCreated = {
                         Timber.d("API created")
@@ -142,6 +161,7 @@ class MainActivity : ComponentActivity() {
 
                 Controls(
                     api = api,
+                    capabilities = capabilities,
                     onOpenFile = {
                         filePicker.launch(
                             arrayOf(
@@ -154,6 +174,10 @@ class MainActivity : ComponentActivity() {
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                         )
+                    },
+                    onCloseFile = {
+                        api?.closeFile()
+                        capabilities = DocumentCapabilities.None
                     },
                     onSaveCapture = { bytes, fileName ->
                         try {
@@ -171,190 +195,270 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Controls(
         api: DocxionWebViewApi?,
+        capabilities: DocumentCapabilities,
         onOpenFile: () -> Unit,
+        onCloseFile: () -> Unit,
         onSaveCapture: (ByteArray, String) -> Unit
     ) {
         val scrollState = rememberScrollState()
+        val paginated = api as? PaginatedDocumentApi
+        val searchable = api as? SearchableDocumentApi
+        val selectable = api as? SelectableDocumentApi
 
-        Column(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(scrollState),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(scrollState),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Button(enabled = api != null, onClick = onOpenFile) {
+                Button(
+                    enabled = api != null,
+                    onClick = onOpenFile
+                ) {
                     Text("Open")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Close file")
-                    api?.closeFile()
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Close file")
+                        onCloseFile()
+                    }
+                ) {
                     Text("Close")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Go to page 1")
-                    api?.goToPage(1)
-                }) {
-                    Text("Page 1")
-                }
-
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Go to next page")
-                    api?.getCurrentPage { page ->
-                        Timber.d("Current page: $page")
-                        api.goToPage(page + 1)
+                if (capabilities.isPaginated && paginated != null) {
+                    OutlinedButton(
+                        onClick = {
+                            Timber.d("Go to page 1")
+                            paginated.goToPage(1)
+                        }
+                    ) {
+                        Text("Page 1")
                     }
-                }) {
-                    Text("Next page")
+
+                    OutlinedButton(
+                        onClick = {
+                            Timber.d("Go to next page")
+                            paginated.getCurrentPage { page ->
+                                Timber.d("Current page: $page")
+                                paginated.goToPage(page + 1)
+                            }
+                        }
+                    ) {
+                        Text("Next page")
+                    }
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Zoom out")
-                    api?.zoomOut()
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Zoom out")
+                        api?.zoomOut()
+                    }
+                ) {
                     Text("−")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Zoom in")
-                    api?.zoomIn()
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Zoom in")
+                        api?.zoomIn()
+                    }
+                ) {
                     Text("+")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Fit to width")
-                    api?.fitToWidth()
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Fit to width")
+                        api?.fitToWidth()
+                    }
+                ) {
                     Text("Fit width")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Fit to page")
-                    api?.fitToPage()
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Fit to page")
+                        api?.fitToPage()
+                    }
+                ) {
                     Text("Fit page")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Previous match")
-                    api?.goToPreviousMatch()
-                }) {
-                    Text("Previous match")
+                if (capabilities.isSearchable && searchable != null) {
+                    OutlinedButton(
+                        onClick = {
+                            Timber.d("Previous match")
+                            searchable.goToPreviousMatch()
+                        }
+                    ) {
+                        Text("Previous match")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            Timber.d("Next match")
+                            searchable.goToNextMatch()
+                        }
+                    ) {
+                        Text("Next match")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            Timber.d("Clear search")
+                            searchable.clearSearch()
+                        }
+                    ) {
+                        Text("Clear search")
+                    }
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Next match")
-                    api?.goToNextMatch()
-                }) {
-                    Text("Next match")
+                if (capabilities.isSelectable && selectable != null) {
+                    OutlinedButton(
+                        onClick = {
+                            Timber.d("Clear selection")
+                            selectable.clearSelection()
+                        }
+                    ) {
+                        Text("Clear selection")
+                    }
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Clear search")
-                    api?.clearSearch()
-                }) {
-                    Text("Clear search")
-                }
-
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Clear selection")
-                    api?.clearSelection()
-                }) {
-                    Text("Clear selection")
-                }
-
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Set light theme")
-                    api?.setTheme(Theme.LIGHT)
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Set light theme")
+                        api?.setTheme(Theme.LIGHT)
+                    }
+                ) {
                     Text("Light")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Set dark theme")
-                    api?.setTheme(Theme.DARK)
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Set dark theme")
+                        api?.setTheme(Theme.DARK)
+                    }
+                ) {
                     Text("Dark")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 1080x1920")
-                    api?.capture(1080, 1920) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_1080x1920.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 1080x1920")
+                        api?.capture(1080, 1920) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_1080x1920.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("Capture 1080×1920")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture height 1920")
-                    api?.capture(1920) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_height_1920.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture height 1920")
+                        api?.capture(1920) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_height_1920.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("Capture H 1920")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 1:1")
-                    api?.capture(CaptureAspectRatio.RATIO_1_1) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_1x1.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 1:1")
+                        api?.capture(CaptureAspectRatio.RATIO_1_1) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_1x1.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("1:1")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 16:9")
-                    api?.capture(CaptureAspectRatio.RATIO_16_9) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_16x9.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 16:9")
+                        api?.capture(CaptureAspectRatio.RATIO_16_9) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_16x9.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("16:9")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 9:16")
-                    api?.capture(CaptureAspectRatio.RATIO_9_16) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_9x16.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 9:16")
+                        api?.capture(CaptureAspectRatio.RATIO_9_16) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_9x16.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("9:16")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 4:3")
-                    api?.capture(CaptureAspectRatio.RATIO_4_3) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_4x3.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 4:3")
+                        api?.capture(CaptureAspectRatio.RATIO_4_3) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_4x3.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("4:3")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 3:4")
-                    api?.capture(CaptureAspectRatio.RATIO_3_4) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_3x4.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 3:4")
+                        api?.capture(CaptureAspectRatio.RATIO_3_4) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_3x4.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("3:4")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Capture 3:2")
-                    api?.capture(CaptureAspectRatio.RATIO_3_2) { bytes ->
-                        onSaveCapture(bytes, "docxion_capture_3x2.png")
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Capture 3:2")
+                        api?.capture(CaptureAspectRatio.RATIO_3_2) { bytes ->
+                            onSaveCapture(bytes, "docxion_capture_3x2.png")
+                        }
                     }
-                }) {
+                ) {
                     Text("3:2")
                 }
 
-                OutlinedButton(enabled = api != null, onClick = {
-                    Timber.d("Print")
-                    api?.print()
-                }) {
+                OutlinedButton(
+                    enabled = api != null,
+                    onClick = {
+                        Timber.d("Print")
+                        api?.print()
+                    }
+                ) {
                     Text("Print")
                 }
             }
@@ -365,7 +469,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun DocxionExamplePreview() {
         ExampleTheme {
-            Controls(api = null, onOpenFile = {}, onSaveCapture = { _, _ -> })
+            Controls(
+                api = null,
+                capabilities = DocumentCapabilities.None,
+                onOpenFile = {},
+                onCloseFile = {},
+                onSaveCapture = { _, _ -> }
+            )
         }
     }
 }

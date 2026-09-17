@@ -1,4 +1,4 @@
-package com.mjrfusion.docxion.bridge
+package com.mjrfusion.docxion.bridge.internal
 
 import android.webkit.JavascriptInterface
 
@@ -9,7 +9,7 @@ import android.webkit.JavascriptInterface
  * JavaScript uses this interface to report viewer events and
  * errors back to the Android host.
  */
-interface DocxionJsBridge {
+internal interface DocxionJsBridge {
 
     /**
      * Reports a debug log message from JavaScript.
