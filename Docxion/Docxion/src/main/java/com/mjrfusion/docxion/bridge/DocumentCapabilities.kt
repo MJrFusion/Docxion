@@ -42,7 +42,7 @@ data class DocumentCapabilities(
          * @param fileName file name or absolute path of the document.
          * @return the capability snapshot for the given file name.
          */
-        fun fromFileName(
+        internal fun fromFileName(
             fileName: String
         ): DocumentCapabilities {
             val extension = fileName

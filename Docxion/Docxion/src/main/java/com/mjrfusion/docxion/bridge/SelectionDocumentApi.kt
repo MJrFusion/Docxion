@@ -8,8 +8,8 @@ interface SelectableDocumentApi {
     /**
      * Returns the currently selected text.
      *
-     * @param callback receives the selected text, or null if there is
-     *                 no selection.
+     * @param callback receives the selected text, or null when there is
+     *                 no active selection.
      */
     fun getSelectedText(callback: (String?) -> Unit)
 

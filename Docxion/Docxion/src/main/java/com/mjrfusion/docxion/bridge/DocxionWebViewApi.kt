@@ -3,55 +3,14 @@ package com.mjrfusion.docxion.bridge
 import android.net.Uri
 
 /**
- * Supported viewer themes.
- */
-enum class Theme(
-    val value: String
-) {
-    /** Light viewer theme. */
-    LIGHT("light"),
-
-    /** Dark viewer theme. */
-    DARK("dark")
-}
-
-/**
- * Supported aspect ratios for viewer captures.
- *
- * The ratio determines the output dimensions when capturing the
- * rendered viewer without explicitly specifying both width and height.
- */
-enum class CaptureAspectRatio(
-    val value: String
-) {
-    /** Square output with a 1:1 aspect ratio. */
-    RATIO_1_1("1:1"),
-
-    /** Landscape output with a 16:9 aspect ratio. */
-    RATIO_16_9("16:9"),
-
-    /** Portrait output with a 9:16 aspect ratio. */
-    RATIO_9_16("9:16"),
-
-    /** Landscape output with a 4:3 aspect ratio. */
-    RATIO_4_3("4:3"),
-
-    /** Portrait output with a 3:4 aspect ratio. */
-    RATIO_3_4("3:4"),
-
-    /** Landscape output with a 3:2 aspect ratio. */
-    RATIO_3_2("3:2")
-}
-
-/**
  * Base Kotlin API for controlling the Docxion viewer.
  *
- * This interface contains the operations shared by all supported
- * document types: opening, closing, zooming, theming, capturing, and
- * lifecycle.
+ * This interface contains only operations shared by all supported
+ * document types: opening, closing, zooming, theming, capturing,
+ * printing, and viewer lifecycle.
  *
- * Capability-specific operations live in separate interfaces that a
- * document handle may implement in addition to this one:
+ * Document-specific operations are exposed through separate capability
+ * interfaces:
  * [PaginatedDocumentApi], [SearchableDocumentApi], and
  * [SelectableDocumentApi].
  *
@@ -61,15 +20,16 @@ enum class CaptureAspectRatio(
 interface DocxionWebViewApi {
 
     /**
-     * Returns the capabilities of the currently loaded document.
+     * Returns a snapshot of the capabilities of the currently loaded
+     * document.
      *
-     * The result is meaningful only after a document has been opened.
-     * Before any document is loaded, all capabilities are reported as
-     * false.
+     * Before a document is loaded, this returns [DocumentCapabilities.None].
      *
-     * @param callback receives the capability snapshot.
+     * @param callback receives the current capability snapshot.
      */
-    fun getDocumentCapabilities(callback: (DocumentCapabilities) -> Unit)
+    fun getDocumentCapabilities(
+        callback: (DocumentCapabilities) -> Unit
+    )
 
     /**
      * Opens a document from an Android content [Uri].

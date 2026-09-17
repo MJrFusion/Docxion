@@ -1,5 +1,7 @@
 # Docxion
+
 [![CI](https://github.com/MJrFusion/Docxion/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/MJrFusion/Docxion/actions/workflows/ci.yml)
+
 [![Latest Release](https://img.shields.io/github/v/release/MJrFusion/Docxion?display_name=tag&sort=semver)](https://github.com/MJrFusion/Docxion/releases/latest)
 
 > **Project Status: Early Development**
@@ -22,11 +24,13 @@ Docxion embeds a TypeScript/JavaScript document viewer inside an Android WebView
 ## Demo
 
 <div align="center">
+
   <video
     src="https://github.com/user-attachments/assets/323f9488-f0e6-4ad1-add6-1a25bc58f8b9"
     controls
     width="471">
   </video>
+
 </div>
 
 ## Installation
@@ -38,7 +42,6 @@ Add JitPack to your repositories.
 ```groovy
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
     repositories {
         google()
         mavenCentral()
@@ -52,7 +55,6 @@ dependencyResolutionManagement {
 ```kotlin
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
     repositories {
         google()
         mavenCentral()
@@ -104,22 +106,102 @@ api?.openFile(uri)
 It provides operations for:
 
 - Opening and closing documents
-- Page navigation
 - Zoom
 - Fit-to-width and fit-to-page
-- Search
-- Text selection
 - Themes
+- Capturing
 - Printing
 - Viewer lifecycle
+- Document capabilities
+
+Document-specific operations are exposed through capability APIs.
+
+### Callbacks
+
+Implement `DocxionCallbacks` for common viewer events.
+
+```kotlin
+class MyCallbacks : DocxionCallbacks {
+
+    override fun onReady(timestamp: Long) {
+    }
+
+    override fun onZoomChanged(zoom: Double) {
+    }
+
+    override fun onError(message: String) {
+    }
+
+    override fun log(message: String) {
+    }
+}
+```
+
+Optional callbacks can be added for document capabilities:
+
+```kotlin
+class MyCallbacks :
+    DocxionCallbacks,
+    PaginationCallbacks,
+    SelectionCallbacks {
+
+    override fun onPageChanged(page: Int, totalPages: Int) {
+    }
+
+    override fun onTextSelected(selection: TextSelection?) {
+    }
+}
+```
+
+### Capability APIs
+
+Pagination, search, and text selection are available through separate capability interfaces.
+
+Check the capabilities of the current document:
+
+```kotlin
+api?.getDocumentCapabilities { capabilities ->
+    if (capabilities.isPaginated) {
+        // Show page controls.
+    }
+
+    if (capabilities.isSearchable) {
+        // Show search controls.
+    }
+
+    if (capabilities.isSelectable) {
+        // Show selection controls.
+    }
+}
+```
+
+Use the corresponding capability interface when you need document-specific operations:
+
+```kotlin
+(api as? PaginatedDocumentApi)?.goToPage(3)
+```
+
+```kotlin
+(api as? SearchableDocumentApi)?.search("hello") { results ->
+    // JSON-encoded search results.
+}
+```
+
+```kotlin
+(api as? SelectableDocumentApi)?.getSelectedText { text ->
+    // Selected text.
+}
+```
+
+Before a document is opened, all capabilities are reported as `false`.
 
 ## Supported Documents
 
-| Type | Formats |
-|---|---|
-| Microsoft Word | `.doc`, `.docx` |
-| Microsoft Excel | `.xls`, `.xlsx` |
-| Microsoft PowerPoint | `.ppt`, `.pptx` |
+| Type | Formats | Paginated | Searchable | Selectable |
+|---|---|---|---|---|
+| Microsoft Word | `.doc`, `.docx` | Yes | Yes | Yes |
+| Microsoft Excel | `.xls`, `.xlsx` | No | Yes | Yes |
+| Microsoft PowerPoint | `.ppt`, `.pptx` | Yes | Yes | Yes |
 
 Actual format support depends on the document renderers included in the viewer.
 

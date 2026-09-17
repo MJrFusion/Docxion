@@ -15,8 +15,14 @@ The document viewer itself is implemented in the separate [`office-viewer`](../o
 The Android library provides three main public integration points:
 
 * `DocxionViewer` — the Jetpack Compose entry point for embedding the viewer.
-* `DocxionWebViewApi` — the Kotlin control API exposed to the host application.
+* `DocxionWebViewApi` — the base Kotlin control API exposed to the host application.
 * `DocxionCallbacks` — callbacks for events common to the viewer, with optional capability-specific callback interfaces for additional document features.
+
+Document-specific operations are exposed through separate capability APIs:
+
+* `PaginatedDocumentApi` — page navigation.
+* `SearchableDocumentApi` — text search.
+* `SelectableDocumentApi` — text selection.
 
 The integration is based on a JavaScript bridge:
 
@@ -131,7 +137,7 @@ DocxionViewer(
 )
 ```
 
-A single callback object can implement multiple callback capabilities. The base `DocxionCallbacks` contains only events that are common to the viewer, while optional interfaces such as `PaginationCallbacks` and `SelectionCallbacks` provide additional document capabilities.
+A single callback object can implement multiple callback capabilities. The base `DocxionCallbacks` contains only events that are common to the viewer, while optional interfaces such as `PaginationCallbacks` and `SelectionCallbacks` provide additional document events.
 
 For example, an application that only needs common viewer events can implement `DocxionCallbacks` without implementing pagination or selection callbacks:
 
@@ -206,7 +212,7 @@ The path is registered with Docxion's WebView file handler and exposed to the Ja
 
 ## Public API
 
-`DocxionWebViewApi` exposes the native control surface for the viewer.
+`DocxionWebViewApi` exposes the base control surface for operations shared by all supported documents.
 
 ### Documents
 
@@ -220,7 +226,25 @@ closeFile()
 getCurrentFile(callback)
 ```
 
-### Pages
+### Document Capabilities
+
+Use `getDocumentCapabilities()` to determine which document-specific operations are available for the currently opened document:
+
+```kotlin
+api?.getDocumentCapabilities { capabilities ->
+    Log.d("Docxion", "Paginated: ${capabilities.isPaginated}")
+    Log.d("Docxion", "Searchable: ${capabilities.isSearchable}")
+    Log.d("Docxion", "Selectable: ${capabilities.isSelectable}")
+}
+```
+
+Before a document is opened, all capabilities are `false`.
+
+The capability result describes the currently loaded document. It is not a static description of everything the viewer can do.
+
+### Pagination
+
+Page operations are exposed through `PaginatedDocumentApi`:
 
 ```text
 goToPage(page: Int)
@@ -228,6 +252,66 @@ goToPage(page: Int)
 getCurrentPage(callback)
 
 getTotalPages(callback)
+```
+
+Access the capability API with a safe cast:
+
+```kotlin
+(api as? PaginatedDocumentApi)?.goToPage(2)
+```
+
+For example:
+
+```kotlin
+val paginatedApi = api as? PaginatedDocumentApi
+
+paginatedApi?.getCurrentPage { page ->
+    Log.d("Docxion", "Current page: $page")
+}
+
+paginatedApi?.getTotalPages { totalPages ->
+    Log.d("Docxion", "Total pages: $totalPages")
+}
+```
+
+### Search
+
+Search operations are exposed through `SearchableDocumentApi`:
+
+```text
+search(query, callback)
+
+clearSearch()
+
+goToNextMatch()
+
+goToPreviousMatch()
+```
+
+Access the capability API with a safe cast:
+
+```kotlin
+(api as? SearchableDocumentApi)?.search("hello") { results ->
+    // JSON-encoded search results.
+}
+```
+
+### Selection
+
+Text selection operations are exposed through `SelectableDocumentApi`:
+
+```text
+getSelectedText(callback)
+
+clearSelection()
+```
+
+Access the capability API with a safe cast:
+
+```kotlin
+(api as? SelectableDocumentApi)?.getSelectedText { text ->
+    Log.d("Docxion", "Selected text: $text")
+}
 ```
 
 ### Zoom
@@ -244,26 +328,6 @@ zoomOut(step: Double? = null)
 fitToWidth()
 
 fitToPage()
-```
-
-### Search
-
-```text
-search(query, callback)
-
-clearSearch()
-
-goToNextMatch()
-
-goToPreviousMatch()
-```
-
-### Selection
-
-```text
-getSelectedText(callback)
-
-clearSelection()
 ```
 
 ### Appearance
@@ -297,8 +361,6 @@ isReady(callback)
 For example:
 
 ```kotlin
-api?.goToPage(2)
-
 api?.zoomIn()
 
 api?.fitToWidth()
@@ -311,12 +373,61 @@ Methods that return values from JavaScript use callbacks because the results are
 For example:
 
 ```kotlin
-api?.getCurrentPage { page ->
-    Log.d("Docxion", "Current page: $page")
+api?.getZoom { zoom ->
+    Log.d("Docxion", "Zoom: $zoom")
 }
 ```
 
 Search results are returned in the format produced by the JavaScript viewer. The TypeScript viewer remains the source of truth for that result format.
+
+## Document Capabilities
+
+Docxion uses capability interfaces instead of exposing document-type-specific APIs from the base `DocxionWebViewApi`.
+
+The available capabilities are:
+
+| Capability | API | Description |
+|---|---|---|
+| Pagination | `PaginatedDocumentApi` | Page navigation and page information |
+| Search | `SearchableDocumentApi` | Text search and match navigation |
+| Selection | `SelectableDocumentApi` | Read and clear the current text selection |
+
+Check the current document first:
+
+```kotlin
+api?.getDocumentCapabilities { capabilities ->
+
+    if (capabilities.isPaginated) {
+        // Show page controls.
+    }
+
+    if (capabilities.isSearchable) {
+        // Show search controls.
+    }
+
+    if (capabilities.isSelectable) {
+        // Show selection controls.
+    }
+}
+```
+
+Then use the corresponding API:
+
+```kotlin
+val paginated = api as? PaginatedDocumentApi
+val searchable = api as? SearchableDocumentApi
+val selectable = api as? SelectableDocumentApi
+```
+
+A capability API is safe to use through a nullable cast:
+
+```kotlin
+(api as? PaginatedDocumentApi)?.goToPage(3)
+```
+
+If the current implementation does not support the capability, the cast returns `null`.
+
+The public API does not require consumers to check document MIME types. Capability detection is handled by the Android library.
 
 ## Themes
 
@@ -443,9 +554,9 @@ The base callbacks are:
 ```text
 log(message)
 
-onZoomChanged(zoom)
-
 onReady(timestamp)
+
+onZoomChanged(zoom)
 
 onError(message, code)
 ```
@@ -544,17 +655,6 @@ DocxionViewer(
 )
 ```
 
-This avoids requiring separate callback objects when an application supports multiple document types or capabilities.
-
-Internally, `DocxionWebView` can detect optional capabilities before dispatching capability-specific events:
-
-```kotlin
-(callbacks as? PaginationCallbacks)
-    ?.onPageChanged(page, totalPages)
-```
-
-The same approach can be used for other optional callback capabilities as they are introduced.
-
 The callback architecture is capability-oriented rather than document-type-oriented. Applications therefore do not need separate callback interfaces such as `WordCallbacks`, `ExcelCallbacks`, or `PowerPointCallbacks`.
 
 ## Text Selection
@@ -642,7 +742,6 @@ DocxionWebView
 DocxionCallbacks              Optional capabilities
         |                     PaginationCallbacks
         |                     SelectionCallbacks
-        |                              |
         +--------------+---------------+
                        |
                        v
@@ -903,8 +1002,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
 See the License for the specific language governing permissions and
 limitations under the License.

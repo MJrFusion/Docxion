@@ -1,11 +1,10 @@
 package com.mjrfusion.docxion.bridge
 
 /**
- * Capability API for documents that support pagination.
+ * Capability API for documents that support page-based navigation.
  *
- * Implemented by paginated formats such as Word documents and
- * PowerPoint presentations. Not implemented by non-paginated formats
- * such as Excel spreadsheets.
+ * A document handle may implement this interface when the currently
+ * loaded document supports pagination.
  */
 interface PaginatedDocumentApi {
 
