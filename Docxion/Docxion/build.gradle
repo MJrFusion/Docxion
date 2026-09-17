@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'io.github.mjrfusion'
-version = '1.0.0-alpha.4'
+version = '1.0.0-alpha.5'
 
 android {
     namespace 'com.mjrfusion.docxion'

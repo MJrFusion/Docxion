@@ -15,8 +15,14 @@ The document viewer itself is implemented in the separate [`office-viewer`](../o
 The Android library provides three main public integration points:
 
 * `DocxionViewer` — the Jetpack Compose entry point for embedding the viewer.
-* `DocxionWebViewApi` — the Kotlin control API exposed to the host application.
-* `DocxionCallbacks` — callbacks for events originating from the viewer.
+* `DocxionWebViewApi` — the base Kotlin control API exposed to the host application.
+* `DocxionCallbacks` — callbacks for events common to the viewer, with optional capability-specific callback interfaces for additional document features.
+
+Document-specific operations are exposed through separate capability APIs:
+
+* `PaginatedDocumentApi` — page navigation.
+* `SearchableDocumentApi` — text search.
+* `SelectableDocumentApi` — text selection.
 
 The integration is based on a JavaScript bridge:
 
@@ -24,19 +30,16 @@ The integration is based on a JavaScript bridge:
 Android / Kotlin
 
       |
-
       v
 
 DocxionViewer
 
       |
-
       v
 
 DocxionWebView
 
       |
-
       +----------------------+
       |                      |
       v                      v
@@ -44,7 +47,6 @@ DocxionWebView
 window.docxionApi     window.DocxionAndroid
       |                      |
       v                      v
-
 JavaScript Viewer       Android callbacks
 ```
 
@@ -97,20 +99,33 @@ Embed the viewer in a Jetpack Compose screen and capture its API:
 ```kotlin
 var api by remember { mutableStateOf<DocxionWebViewApi?>(null) }
 
-val callbacks = object : DocxionCallbacks {
+val callbacks = object : DocxionCallbacks,
+    PaginationCallbacks,
+    SelectionCallbacks {
 
-    override fun log(message: String) {}
+    override fun log(message: String) {
+        Log.d("Docxion", message)
+    }
 
-    override fun onPageChanged(page: Int, totalPages: Int) {}
+    override fun onPageChanged(page: Int, totalPages: Int) {
+        Log.d("Docxion", "Page: $page / $totalPages")
+    }
 
-    override fun onZoomChanged(zoom: Double) {}
+    override fun onZoomChanged(zoom: Double) {
+        Log.d("Docxion", "Zoom: $zoom")
+    }
 
-    override fun onTextSelected(selection: TextSelection?) {}
+    override fun onTextSelected(selection: TextSelection?) {
+        Log.d("Docxion", "Selection: $selection")
+    }
 
-    override fun onReady(timestamp: Long) {}
+    override fun onReady(timestamp: Long) {
+        Log.d("Docxion", "Viewer ready: $timestamp")
+    }
 
-    override fun onError(message: String, code: String?) {}
-
+    override fun onError(message: String, code: String?) {
+        Log.e("Docxion", "Error: $message, code: $code")
+    }
 }
 
 DocxionViewer(
@@ -120,6 +135,49 @@ DocxionViewer(
         api = createdApi
     }
 )
+```
+
+A single callback object can implement multiple callback capabilities. The base `DocxionCallbacks` contains only events that are common to the viewer, while optional interfaces such as `PaginationCallbacks` and `SelectionCallbacks` provide additional document events.
+
+For example, an application that only needs common viewer events can implement `DocxionCallbacks` without implementing pagination or selection callbacks:
+
+```kotlin
+val callbacks = object : DocxionCallbacks {
+
+    override fun log(message: String) {
+        Log.d("Docxion", message)
+    }
+
+    override fun onReady(timestamp: Long) {
+        Log.d("Docxion", "Viewer ready: $timestamp")
+    }
+
+    override fun onError(message: String, code: String?) {
+        Log.e("Docxion", "Error: $message, code: $code")
+    }
+}
+```
+
+An application that needs pagination can additionally implement `PaginationCallbacks`:
+
+```kotlin
+val callbacks = object : DocxionCallbacks, PaginationCallbacks {
+
+    override fun onPageChanged(page: Int, totalPages: Int) {
+        Log.d("Docxion", "Page: $page / $totalPages")
+    }
+}
+```
+
+An application that needs selection can implement `SelectionCallbacks`:
+
+```kotlin
+val callbacks = object : DocxionCallbacks, SelectionCallbacks {
+
+    override fun onTextSelected(selection: TextSelection?) {
+        Log.d("Docxion", "Selection: $selection")
+    }
+}
 ```
 
 `onApiCreated` provides the `DocxionWebViewApi` when the native viewer API becomes available.
@@ -154,7 +212,7 @@ The path is registered with Docxion's WebView file handler and exposed to the Ja
 
 ## Public API
 
-`DocxionWebViewApi` exposes the native control surface for the viewer.
+`DocxionWebViewApi` exposes the base control surface for operations shared by all supported documents.
 
 ### Documents
 
@@ -168,7 +226,25 @@ closeFile()
 getCurrentFile(callback)
 ```
 
-### Pages
+### Document Capabilities
+
+Use `getDocumentCapabilities()` to determine which document-specific operations are available for the currently opened document:
+
+```kotlin
+api?.getDocumentCapabilities { capabilities ->
+    Log.d("Docxion", "Paginated: ${capabilities.isPaginated}")
+    Log.d("Docxion", "Searchable: ${capabilities.isSearchable}")
+    Log.d("Docxion", "Selectable: ${capabilities.isSelectable}")
+}
+```
+
+Before a document is opened, all capabilities are `false`.
+
+The capability result describes the currently loaded document. It is not a static description of everything the viewer can do.
+
+### Pagination
+
+Page operations are exposed through `PaginatedDocumentApi`:
 
 ```text
 goToPage(page: Int)
@@ -176,6 +252,66 @@ goToPage(page: Int)
 getCurrentPage(callback)
 
 getTotalPages(callback)
+```
+
+Access the capability API with a safe cast:
+
+```kotlin
+(api as? PaginatedDocumentApi)?.goToPage(2)
+```
+
+For example:
+
+```kotlin
+val paginatedApi = api as? PaginatedDocumentApi
+
+paginatedApi?.getCurrentPage { page ->
+    Log.d("Docxion", "Current page: $page")
+}
+
+paginatedApi?.getTotalPages { totalPages ->
+    Log.d("Docxion", "Total pages: $totalPages")
+}
+```
+
+### Search
+
+Search operations are exposed through `SearchableDocumentApi`:
+
+```text
+search(query, callback)
+
+clearSearch()
+
+goToNextMatch()
+
+goToPreviousMatch()
+```
+
+Access the capability API with a safe cast:
+
+```kotlin
+(api as? SearchableDocumentApi)?.search("hello") { results ->
+    // JSON-encoded search results.
+}
+```
+
+### Selection
+
+Text selection operations are exposed through `SelectableDocumentApi`:
+
+```text
+getSelectedText(callback)
+
+clearSelection()
+```
+
+Access the capability API with a safe cast:
+
+```kotlin
+(api as? SelectableDocumentApi)?.getSelectedText { text ->
+    Log.d("Docxion", "Selected text: $text")
+}
 ```
 
 ### Zoom
@@ -192,26 +328,6 @@ zoomOut(step: Double? = null)
 fitToWidth()
 
 fitToPage()
-```
-
-### Search
-
-```text
-search(query, callback)
-
-clearSearch()
-
-goToNextMatch()
-
-goToPreviousMatch()
-```
-
-### Selection
-
-```text
-getSelectedText(callback)
-
-clearSelection()
 ```
 
 ### Appearance
@@ -245,8 +361,6 @@ isReady(callback)
 For example:
 
 ```kotlin
-api?.goToPage(2)
-
 api?.zoomIn()
 
 api?.fitToWidth()
@@ -259,12 +373,61 @@ Methods that return values from JavaScript use callbacks because the results are
 For example:
 
 ```kotlin
-api?.getCurrentPage { page ->
-    Log.d("Docxion", "Current page: $page")
+api?.getZoom { zoom ->
+    Log.d("Docxion", "Zoom: $zoom")
 }
 ```
 
 Search results are returned in the format produced by the JavaScript viewer. The TypeScript viewer remains the source of truth for that result format.
+
+## Document Capabilities
+
+Docxion uses capability interfaces instead of exposing document-type-specific APIs from the base `DocxionWebViewApi`.
+
+The available capabilities are:
+
+| Capability | API | Description |
+|---|---|---|
+| Pagination | `PaginatedDocumentApi` | Page navigation and page information |
+| Search | `SearchableDocumentApi` | Text search and match navigation |
+| Selection | `SelectableDocumentApi` | Read and clear the current text selection |
+
+Check the current document first:
+
+```kotlin
+api?.getDocumentCapabilities { capabilities ->
+
+    if (capabilities.isPaginated) {
+        // Show page controls.
+    }
+
+    if (capabilities.isSearchable) {
+        // Show search controls.
+    }
+
+    if (capabilities.isSelectable) {
+        // Show selection controls.
+    }
+}
+```
+
+Then use the corresponding API:
+
+```kotlin
+val paginated = api as? PaginatedDocumentApi
+val searchable = api as? SearchableDocumentApi
+val selectable = api as? SelectableDocumentApi
+```
+
+A capability API is safe to use through a nullable cast:
+
+```kotlin
+(api as? PaginatedDocumentApi)?.goToPage(3)
+```
+
+If the current implementation does not support the capability, the cast returns `null`.
+
+The public API does not require consumers to check document MIME types. Capability detection is handled by the Android library.
 
 ## Themes
 
@@ -357,7 +520,13 @@ All capture overloads return the encoded PNG through a callback as a Kotlin `Byt
 
 ## Viewer Callbacks
 
-Implement `DocxionCallbacks` to receive events from the JavaScript viewer:
+Docxion separates callbacks into a base interface for common viewer events and optional interfaces for document capabilities.
+
+This allows applications to use a single callback object while implementing only the capabilities they need.
+
+### Base Callbacks
+
+Implement `DocxionCallbacks` to receive events that are common to the viewer:
 
 ```kotlin
 val callbacks = object : DocxionCallbacks {
@@ -366,16 +535,95 @@ val callbacks = object : DocxionCallbacks {
         Log.d("Docxion", message)
     }
 
-    override fun onPageChanged(page: Int, totalPages: Int) {
-        Log.d("Docxion", "Page: $page / $totalPages")
-    }
-
     override fun onZoomChanged(zoom: Double) {
         Log.d("Docxion", "Zoom: $zoom")
     }
 
+    override fun onReady(timestamp: Long) {
+        Log.d("Docxion", "Viewer ready: $timestamp")
+    }
+
+    override fun onError(message: String, code: String?) {
+        Log.e("Docxion", "Error: $message, code: $code")
+    }
+}
+```
+
+The base callbacks are:
+
+```text
+log(message)
+
+onReady(timestamp)
+
+onZoomChanged(zoom)
+
+onError(message, code)
+```
+
+These callbacks are not tied to a specific document type.
+
+### Pagination Callbacks
+
+Pagination is exposed separately through `PaginationCallbacks`:
+
+```kotlin
+val callbacks = object : DocxionCallbacks, PaginationCallbacks {
+
+    override fun onPageChanged(
+        page: Int,
+        totalPages: Int
+    ) {
+        Log.d("Docxion", "Page: $page / $totalPages")
+    }
+}
+```
+
+The pagination callback is:
+
+```text
+onPageChanged(page, totalPages)
+```
+
+Applications that do not need pagination do not need to implement `PaginationCallbacks`.
+
+### Selection Callbacks
+
+Text selection is exposed separately through `SelectionCallbacks`:
+
+```kotlin
+val callbacks = object : DocxionCallbacks, SelectionCallbacks {
+
     override fun onTextSelected(selection: TextSelection?) {
         Log.d("Docxion", "Selection: $selection")
+    }
+}
+```
+
+The selection callback is:
+
+```text
+onTextSelected(selection)
+```
+
+Applications that do not need text-selection events do not need to implement `SelectionCallbacks`.
+
+### Multiple Capabilities
+
+A single callback object can implement as many capabilities as required:
+
+```kotlin
+class MyCallbacks :
+    DocxionCallbacks,
+    PaginationCallbacks,
+    SelectionCallbacks {
+
+    override fun log(message: String) {
+        Log.d("Docxion", message)
+    }
+
+    override fun onZoomChanged(zoom: Double) {
+        Log.d("Docxion", "Zoom: $zoom")
     }
 
     override fun onReady(timestamp: Long) {
@@ -386,34 +634,32 @@ val callbacks = object : DocxionCallbacks {
         Log.e("Docxion", "Error: $message, code: $code")
     }
 
+    override fun onPageChanged(
+        page: Int,
+        totalPages: Int
+    ) {
+        Log.d("Docxion", "Page: $page / $totalPages")
+    }
+
+    override fun onTextSelected(selection: TextSelection?) {
+        Log.d("Docxion", "Selection: $selection")
+    }
 }
 ```
 
-The callbacks available to the host application are:
+`DocxionViewer` continues to accept a single callback object:
 
-```text
-log(message)
-
-onPageChanged(page, totalPages)
-
-onZoomChanged(zoom)
-
-onTextSelected(selection)
-
-onReady(timestamp)
-
-onError(message, code)
+```kotlin
+DocxionViewer(
+    callbacks = MyCallbacks()
+)
 ```
 
-The callbacks are delivered from the JavaScript viewer through the Android bridge exposed as:
-
-```text
-window.DocxionAndroid
-```
+The callback architecture is capability-oriented rather than document-type-oriented. Applications therefore do not need separate callback interfaces such as `WordCallbacks`, `ExcelCallbacks`, or `PowerPointCallbacks`.
 
 ## Text Selection
 
-The viewer can report the geometry of the current text selection to Android.
+The viewer can report the geometry of the current text selection to Android through `SelectionCallbacks`.
 
 The callback receives a `TextSelection?`:
 
@@ -437,15 +683,15 @@ The Android library sits between the host Android application and the TypeScript
 Host Android Application
           |
           v
-   DocxionViewer
+    DocxionViewer
           |
           v
-    DocxionWebView
+     DocxionWebView
           |
           +----------------------+
           |                      |
           v                      v
- Android WebView          Web Viewer Assets
+   Android WebView        Web Viewer Assets
           |                      |
           +----------+-----------+
                      |
@@ -486,14 +732,23 @@ window.DocxionAndroid
 
         v
 
-DocxionCallbacks
+DocxionWebView
 
         |
 
-        v
-
-Host Android Application
+        +------------------------------+
+        |                              |
+        v                              v
+DocxionCallbacks              Optional capabilities
+        |                     PaginationCallbacks
+        |                     SelectionCallbacks
+        +--------------+---------------+
+                       |
+                       v
+              Host Android Application
 ```
+
+The Android bridge dispatches common viewer events through `DocxionCallbacks` and checks for optional callback capabilities before dispatching capability-specific events.
 
 The Android library therefore provides the native hosting and bridge layer while keeping viewer behavior in the web implementation.
 
@@ -624,7 +879,7 @@ Development requires:
 
 * Android Studio with the project's configured Android SDK and JDK.
 * Node.js and npm for building `office-viewer`.
-* The Gradle Wrapper included in this repository.
+* The Gradle Wrapper included in the repository.
 * An Android device or emulator for running the Example application.
 
 The Android project uses the Gradle Wrapper, so a system-wide Gradle installation is not required.
@@ -650,6 +905,84 @@ Responsibilities are separated between the projects:
 * **`office-viewer`** — web-based document viewer and its generated distribution.
 * **`Example`** — demonstrates consuming the Android library from an Android application.
 
+## Callback Design
+
+Docxion uses capability-oriented callbacks so that the public API does not require consumers to implement events that are unrelated to the capabilities they use.
+
+The base interface contains common viewer events:
+
+```kotlin
+interface DocxionCallbacks {
+
+    fun log(message: String) {}
+
+    fun onReady(timestamp: Long) {}
+
+    fun onZoomChanged(zoom: Double) {}
+
+    fun onError(
+        message: String,
+        code: String?
+    ) {}
+}
+```
+
+Optional capabilities are represented by separate interfaces:
+
+```kotlin
+interface PaginationCallbacks {
+
+    fun onPageChanged(
+        page: Int,
+        totalPages: Int
+    )
+}
+```
+
+```kotlin
+interface SelectionCallbacks {
+
+    fun onTextSelected(
+        selection: TextSelection?
+    )
+}
+```
+
+A consumer can combine these interfaces in a single callback implementation:
+
+```kotlin
+class MyCallbacks :
+    DocxionCallbacks,
+    PaginationCallbacks,
+    SelectionCallbacks {
+
+    override fun onPageChanged(
+        page: Int,
+        totalPages: Int
+    ) {
+        // Handle pagination
+    }
+
+    override fun onTextSelected(
+        selection: TextSelection?
+    ) {
+        // Handle selection
+    }
+}
+```
+
+This design provides several benefits:
+
+* Keeps `DocxionCallbacks` focused on events common to the viewer.
+* Prevents consumers from implementing irrelevant callbacks.
+* Allows one callback class to support multiple capabilities.
+* Avoids coupling the callback API directly to document MIME types.
+* Makes adding new document formats less disruptive to the public API.
+* Provides a scalable model for future document-specific capabilities.
+* Keeps the Compose API simple by continuing to accept a single callback object.
+
+Capability interfaces are intentionally independent from document type. A document format can expose one or more capabilities without requiring a new callback hierarchy for every format.
+
 ## Related Documentation
 
 * [`Example/README.md`](Example/README.md) — Android integration example.
@@ -669,9 +1002,8 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 
-See the License for the specific language governing permissions
-and limitations under the License.
+See the License for the specific language governing permissions and
+limitations under the License.
 ```

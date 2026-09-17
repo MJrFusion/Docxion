@@ -10,7 +10,7 @@ import android.view.animation.DecelerateInterpolator
 import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.webkit.WebViewAssetLoader
-import com.mjrfusion.docxion.bridge.DocxionJsBridge
+import com.mjrfusion.docxion.bridge.internal.DocxionJsBridge
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
 import com.mjrfusion.docxion.bridge.impl.DocxionJsBridgeImpl
 import com.mjrfusion.docxion.bridge.impl.DocxionWebViewApiImpl

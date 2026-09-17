@@ -1,12 +1,26 @@
 package com.mjrfusion.docxion.bridge.impl
 
 import android.webkit.JavascriptInterface
-import com.mjrfusion.docxion.bridge.DocxionJsBridge
+import com.mjrfusion.docxion.bridge.internal.DocxionJsBridge
 import com.mjrfusion.docxion.callback.DocxionCallbacks
+import com.mjrfusion.docxion.callback.PaginationCallbacks
+import com.mjrfusion.docxion.callback.SelectionCallbacks
 import com.mjrfusion.docxion.model.SelectionRect
 import com.mjrfusion.docxion.model.TextSelection
 import org.json.JSONObject
 
+/**
+ * Default [DocxionJsBridge] implementation that forwards JavaScript
+ * events to the supplied [DocxionCallbacks] instance.
+ *
+ * The `@JavascriptInterface` method signatures are kept stable so the
+ * JavaScript side requires no changes. Internally, capability-specific
+ * events are dispatched only when the callback object also implements
+ * the corresponding capability interface ([PaginationCallbacks],
+ * [SelectionCallbacks]); otherwise the event is silently ignored.
+ *
+ * @param callbacks the callback object supplied by the host application.
+ */
 internal class DocxionJsBridgeImpl(
     private val callbacks: DocxionCallbacks
 ) : DocxionJsBridge {
@@ -18,7 +32,8 @@ internal class DocxionJsBridgeImpl(
 
     @JavascriptInterface
     override fun onPageChanged(page: Int, totalPages: Int) {
-        callbacks.onPageChanged(page, totalPages)
+        (callbacks as? PaginationCallbacks)
+            ?.onPageChanged(page, totalPages)
     }
 
     @JavascriptInterface
@@ -29,7 +44,8 @@ internal class DocxionJsBridgeImpl(
     @JavascriptInterface
     override fun onTextSelected(selectionJson: String?) {
         val selection = selectionJson?.let(::parseTextSelection)
-        callbacks.onTextSelected(selection)
+        (callbacks as? SelectionCallbacks)
+            ?.onTextSelected(selection)
     }
 
     @JavascriptInterface
@@ -42,6 +58,13 @@ internal class DocxionJsBridgeImpl(
         callbacks.onError(message, code)
     }
 
+    /**
+     * Parses the JSON payload emitted by the JavaScript viewer into a
+     * [TextSelection].
+     *
+     * @param json the raw JSON string describing the selection.
+     * @return the parsed [TextSelection].
+     */
     private fun parseTextSelection(
         json: String
     ): TextSelection {

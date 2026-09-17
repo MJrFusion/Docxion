@@ -44,14 +44,33 @@ enum class CaptureAspectRatio(
 }
 
 /**
- * Kotlin API for controlling the Docxion viewer.
+ * Base Kotlin API for controlling the Docxion viewer.
  *
- * This interface mirrors the public TypeScript `ViewerAPI`.
+ * This interface contains only operations shared by all supported
+ * document types: opening, closing, zooming, theming, capturing,
+ * printing, and viewer lifecycle.
+ *
+ * Document-specific operations are exposed through separate capability
+ * interfaces:
+ * [PaginatedDocumentApi], [SearchableDocumentApi], and
+ * [SelectableDocumentApi].
  *
  * Documents can be opened from either an Android [Uri] or an
  * absolute filesystem path.
  */
 interface DocxionWebViewApi {
+
+    /**
+     * Returns a snapshot of the capabilities of the currently loaded
+     * document.
+     *
+     * Before a document is loaded, this returns [DocumentCapabilities.None].
+     *
+     * @param callback receives the current capability snapshot.
+     */
+    fun getDocumentCapabilities(
+        callback: (DocumentCapabilities) -> Unit
+    )
 
     /**
      * Opens a document from an Android content [Uri].
@@ -79,27 +98,6 @@ interface DocxionWebViewApi {
      * if no document is open.
      */
     fun getCurrentFile(callback: (String?) -> Unit)
-
-    /**
-     * Navigates to a page.
-     *
-     * @param page page number to navigate to.
-     */
-    fun goToPage(page: Int)
-
-    /**
-     * Returns the current page number.
-     *
-     * @param callback receives the current page number.
-     */
-    fun getCurrentPage(callback: (Int) -> Unit)
-
-    /**
-     * Returns the total number of pages.
-     *
-     * @param callback receives the total page count.
-     */
-    fun getTotalPages(callback: (Int) -> Unit)
 
     /**
      * Sets the viewer zoom level.
@@ -138,45 +136,6 @@ interface DocxionWebViewApi {
      * Fits the document to the available viewer page.
      */
     fun fitToPage()
-
-    /**
-     * Searches the current document.
-     *
-     * @param query search query.
-     * @param callback receives the JSON-encoded search results.
-     */
-    fun search(
-        query: String,
-        callback: (String) -> Unit
-    )
-
-    /**
-     * Clears the current search results.
-     */
-    fun clearSearch()
-
-    /**
-     * Navigates to the next search match.
-     */
-    fun goToNextMatch()
-
-    /**
-     * Navigates to the previous search match.
-     */
-    fun goToPreviousMatch()
-
-    /**
-     * Returns the currently selected text.
-     *
-     * @param callback receives the selected text, or null if there is
-     * no selection.
-     */
-    fun getSelectedText(callback: (String?) -> Unit)
-
-    /**
-     * Clears the current text selection.
-     */
-    fun clearSelection()
 
     /**
      * Sets the viewer theme.
