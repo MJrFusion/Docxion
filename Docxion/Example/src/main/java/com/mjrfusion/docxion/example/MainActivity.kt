@@ -10,26 +10,43 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mjrfusion.docxion.bridge.CaptureAspectRatio
 import com.mjrfusion.docxion.bridge.DocumentCapabilities
 import com.mjrfusion.docxion.bridge.DocxionWebViewApi
@@ -91,11 +108,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @RequiresApi(Build.VERSION_CODES.Q)
     @Composable
     private fun DocxionExampleScreen() {
         var api by remember { mutableStateOf<DocxionWebViewApi?>(null) }
         var capabilities by remember { mutableStateOf(DocumentCapabilities.None) }
+        var hasFile by remember { mutableStateOf(false) }
+        var searchQuery by remember { mutableStateOf("") }
+        var isSearching by remember { mutableStateOf(false) }
 
         val callbacks = remember {
             object : DocxionCallbacks, PaginationCallbacks, SelectionCallbacks {
@@ -130,6 +151,9 @@ class MainActivity : ComponentActivity() {
         ) { uri ->
             uri?.let {
                 Timber.d("Opening file: $it")
+                if (!hasFile) {
+                    hasFile = true
+                }
                 api?.openFile(it)
                 api?.getDocumentCapabilities { loaded ->
                     Timber.d(
@@ -142,22 +166,81 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Scaffold(modifier = Modifier.fillMaxSize()) { padding ->
+        val searchable = api as? SearchableDocumentApi
+
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            topBar = {
+                if (hasFile && capabilities.isSearchable && searchable != null) {
+                    SearchTopAppBar(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { query ->
+                            searchQuery = query
+                            if (query.isNotBlank()) {
+                                searchable.search(query) { results ->
+                                    Timber.d("Search results: $results")
+                                }
+                                isSearching = true
+                            } else {
+                                searchable.clearSearch()
+                                isSearching = false
+                            }
+                        },
+                        onClearSearch = {
+                            searchQuery = ""
+                            searchable.clearSearch()
+                            isSearching = false
+                        },
+                        onPreviousMatch = {
+                            searchable.goToPreviousMatch()
+                        },
+                        onNextMatch = {
+                            searchable.goToNextMatch()
+                        },
+                        isSearching = isSearching
+                    )
+                } else {
+                    TopAppBar(
+                        title = { Text("Docxion") },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        )
+                    )
+                }
+            }
+        ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                DocxionViewer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    callbacks = callbacks,
-                    onApiCreated = {
-                        Timber.d("API created")
-                        api = it
+                if (hasFile) {
+                    DocxionViewer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        callbacks = callbacks,
+                        onApiCreated = {
+                            Timber.d("API created")
+                            api = it
+                        }
+                    )
+                } else {
+                    // Placeholder when no file is loaded
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .background(Color.LightGray),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Select a document to view",
+                            fontSize = 24.sp,
+                            color = Color.DarkGray
+                        )
                     }
-                )
+                }
 
                 Controls(
                     api = api,
@@ -178,6 +261,9 @@ class MainActivity : ComponentActivity() {
                     onCloseFile = {
                         api?.closeFile()
                         capabilities = DocumentCapabilities.None
+                        hasFile = false
+                        searchQuery = ""
+                        isSearching = false
                     },
                     onSaveCapture = { bytes, fileName ->
                         try {
@@ -217,7 +303,6 @@ class MainActivity : ComponentActivity() {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Button(
-                    enabled = api != null,
                     onClick = onOpenFile
                 ) {
                     Text("Open")
@@ -296,34 +381,7 @@ class MainActivity : ComponentActivity() {
                     Text("Fit page")
                 }
 
-                if (capabilities.isSearchable && searchable != null) {
-                    OutlinedButton(
-                        onClick = {
-                            Timber.d("Previous match")
-                            searchable.goToPreviousMatch()
-                        }
-                    ) {
-                        Text("Previous match")
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            Timber.d("Next match")
-                            searchable.goToNextMatch()
-                        }
-                    ) {
-                        Text("Next match")
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            Timber.d("Clear search")
-                            searchable.clearSearch()
-                        }
-                    ) {
-                        Text("Clear search")
-                    }
-                }
+                // Search controls moved to top app bar
 
                 if (capabilities.isSelectable && selectable != null) {
                     OutlinedButton(
@@ -463,6 +521,61 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    private fun SearchTopAppBar(
+        searchQuery: String,
+        onSearchQueryChange: (String) -> Unit,
+        onClearSearch: () -> Unit,
+        onPreviousMatch: () -> Unit,
+        onNextMatch: () -> Unit,
+        isSearching: Boolean
+    ) {
+        TopAppBar(
+            title = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = onSearchQueryChange,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        placeholder = { Text("Search...") },
+                        leadingIcon = {
+                            if (isSearching) {
+                                IconButton(onClick = onClearSearch) {
+                                    Icon(Icons.Filled.Clear, contentDescription = null)
+                                }
+                            } else {
+                                Icon(Icons.Filled.Search, contentDescription = null)
+                            }
+                        },
+                        trailingIcon = {
+                            if (isSearching) {
+                                Row(horizontalArrangement = Arrangement.End) {
+                                    IconButton(onClick = onPreviousMatch) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
+                                    }
+                                    IconButton(onClick = onNextMatch) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+                                    }
+                                }
+                            }
+                        },
+                        singleLine = true,
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            )
+        )
     }
 
     @Preview(showBackground = true)

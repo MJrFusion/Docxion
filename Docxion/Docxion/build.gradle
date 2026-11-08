@@ -52,7 +52,7 @@ afterEvaluate {
                 pom {
                     name = 'Docxion'
                     description = 'Android document viewer library'
-                    url = 'https://github.com/mjrfusion/docxion'
+                    url = 'https://github.com/MJrFusion/Docxion'
 
                     licenses {
                         license {
